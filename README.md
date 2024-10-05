@@ -30,6 +30,12 @@ add the following flag:
 The script always expects two positional arguments in the specified order and
 a combination of the supported flags (or none).
 
+## Devbox
+
+This project utilizes [devbox](https://github.com/jetify-com/devbox) in order
+to provide a consistent and reliable development environment.
+You can however, If you choose so, install the required dependencies manually.
+
 ## Makefile
 
 Makefile provides all the basic utilities for the development workflow.
@@ -51,6 +57,19 @@ and place the comment directly above the target, like so:
 new-target:
   echo "Hello"
 ```
+
+## CI
+
+Continuous integration pipelines utilize the same Makefile commands which
+you run locally within reproducible `devbox` environment.
+This ensures consistent behavior of the executed checks
+and makes local debugging easier.
+
+## Testing
+
+You can run all unit tests with `make test`.
+We also encourage inspecting test coverage during development, you can verify
+if the paths you're interested in are covered with `make test/coverage`.
 
 ## Releasing binaries
 
