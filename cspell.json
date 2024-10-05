@@ -25,5 +25,13 @@
     "/nolint.*/g",
     "/nosec.*/g"
   ],
-  "words": []
+  "words": [
+    "devbox",
+    "gofumpt",
+    "goimports",
+    "golangci",
+    "golines",
+    "gosec",
+    "govulncheck"
+  ]
 }

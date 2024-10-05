@@ -30,6 +30,18 @@ add the following flag:
 The script always expects two positional arguments in the specified order and
 a combination of the supported flags (or none).
 
+## Devbox
+
+This project utilizes [devbox](https://github.com/jetify-com/devbox) in order
+to provide a consistent and reliable development environment.
+You can however, If you choose so, install the required dependencies manually.
+
+## Project structure
+
+The template includes an example of
+[recommended Go project layout](https://github.com/golang-standards/project-layout)
+which includes `cmd`, `pkg` and `internal` directories.
+
 ## Makefile
 
 Makefile provides all the basic utilities for the development workflow.
@@ -52,6 +64,19 @@ new-target:
   echo "Hello"
 ```
 
+## CI
+
+Continuous integration pipelines utilize the same Makefile commands which
+you run locally within reproducible `devbox` environment.
+This ensures consistent behavior of the executed checks
+and makes local debugging easier.
+
+## Testing
+
+You can run all unit tests with `make test`.
+We also encourage inspecting test coverage during development, you can verify
+if the paths you're interested in are covered with `make test/coverage`.
+
 ## Releasing binaries
 
 If you decide to ship binaries with the project,
@@ -63,7 +88,7 @@ docs for up-to-date permission requirements for the token.
 ## Release Drafter
 
 If you decide to keep release automation, you will need to setup
-`RELEASE_LABELER_TOKEN` secret.
+`RELEASE_DRAFTER_TOKEN` secret.
 Refer to [release-drafter](https://github.com/release-drafter/release-drafter?tab=readme-ov-file#usage)
 docs for up-to-date permission requirements for the token.
 
