@@ -88,7 +88,7 @@ docs for up-to-date permission requirements for the token.
 ## Release Drafter
 
 If you decide to keep release automation, you will need to setup
-`RELEASE_LABELER_TOKEN` secret.
+`RELEASE_DRAFTER_TOKEN` secret.
 Refer to [release-drafter](https://github.com/release-drafter/release-drafter?tab=readme-ov-file#usage)
 docs for up-to-date permission requirements for the token.
 
