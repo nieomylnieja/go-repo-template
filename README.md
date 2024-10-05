@@ -6,6 +6,7 @@ for creating new Go projects!
 ## Bootstrap
 
 Click `Use this template` button and voila!
+![2024-10-05_22-53](https://github.com/user-attachments/assets/ae397fc7-5fa5-49df-94c1-314572a223d8)
 
 After you're done, you can run the following command to bootstrap the project:
 
@@ -29,6 +30,13 @@ add the following flag:
 
 The script always expects two positional arguments in the specified order and
 a combination of the supported flags (or none).
+
+### GitHub setup
+
+Aside from setting up required GitHub tokens as secrets (mentioned below),
+it's highly recommended enable the following options:
+
+TODO
 
 ## Devbox
 
