@@ -22,6 +22,12 @@ install/devbox:
 	$(call _print_step,Installing devbox)
 	curl -fsSL https://get.jetpack.io/devbox | bash
 
+## Update devbox manged package versions.
+update/devbox:
+	$(call _print_step,Update packages managed by devbox)
+	devbox update
+
+
 .PHONY: build
 ## Build x-repo-name binary.
 build:
