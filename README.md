@@ -36,6 +36,12 @@ This project utilizes [devbox](https://github.com/jetify-com/devbox) in order
 to provide a consistent and reliable development environment.
 You can however, If you choose so, install the required dependencies manually.
 
+## Project structure
+
+The template includes an example of
+[recommended Go project layout](https://github.com/golang-standards/project-layout)
+which includes `cmd`, `pkg` and `internal` directories.
+
 ## Makefile
 
 Makefile provides all the basic utilities for the development workflow.

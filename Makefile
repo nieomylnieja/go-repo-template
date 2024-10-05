@@ -2,6 +2,7 @@
 MAKEFLAGS += --silent --no-print-directory
 
 BIN_DIR := ./bin
+SCRIPTS_DIR := ./scripts
 APP_NAME := x-repo-name
 LDFLAGS += -s -w
 
@@ -74,12 +75,12 @@ check/spell:
 ## Check for trailing whitespaces in any of the projects' files.
 check/trailing:
 	$(call _print_step,Looking for trailing whitespaces)
-	yarn --silent check-trailing-whitespaces
+	$(SCRIPTS_DIR)/check-trailing-whitespaces.bash
 
 ## Check markdown files for potential issues with markdownlint.
 check/markdown:
 	$(call _print_step,Verifying Markdown files)
-	yarn --silent markdownlint '*.md' --disable MD010 # MD010 does not handle code blocks well.
+	yarn --silent markdownlint '**/*.md' --ignore 'node_modules'
 
 ## Check for potential vulnerabilities across all Go dependencies.
 check/vulnerabilities:
@@ -89,13 +90,13 @@ check/vulnerabilities:
 ## Verify if the auto generated code has been committed.
 check/generate:
 	$(call _print_step,Checking if generated code matches the provided definitions)
-	./scripts/check-generate.sh
+	$(SCRIPTS_DIR)/check-generate.sh
 
 ## Verify if the files are formatted.
 ## You must first commit the changes, otherwise it won't detect the diffs.
 check/format:
 	$(call _print_step,Checking if files are formatted)
-	./scripts/check-formatting.sh
+	$(SCRIPTS_DIR)/check-formatting.sh
 
 .PHONY: generate generate/code
 ## Auto generate files.
@@ -134,4 +135,4 @@ install/yarn:
 .PHONY: help
 ## Print this help message.
 help:
-	./scripts/makefile-help.awk $(MAKEFILE_LIST)
+	$(SCRIPTS_DIR)/makefile-help.awk $(MAKEFILE_LIST)
