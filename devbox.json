@@ -7,11 +7,11 @@
     "golangci-lint@1.61",
     "govulncheck@1.1",
     "gotools@0.25",
-    "go@1.23"
+    "go@1.22"
   ],
   "shell": {
     "init_hook": [
-      "export \"GOROOT=$(go env GOROOT)\"",
+      "export GOROOT=$(go env GOROOT)",
       "make install/yarn"
     ]
   }
