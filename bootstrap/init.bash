@@ -38,7 +38,7 @@ REPO_NAME=$2
 if [[ $NO_BINARY ]]; then
   echo "--no-binary flag is set, removing related files" >&2
   rm -rf .goreleaser.yml .github/workflows/release.yml bin
-  awk '/\.PHONY: (build|release)/ {d=1}; !d {print}; /^$/ {d=0}' Makefile > Makefile_cp && Makefile_cp > Makefile
+  awk '/\.PHONY: (build|release)/ {d=1}; !d {print}; /^$/ {d=0}' Makefile > Makefile_cp && mv Makefile_cp Makefile
 else
   mv cmd/x-repo-name "cmd/$REPO_NAME"
 fi
