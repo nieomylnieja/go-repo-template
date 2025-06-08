@@ -3,11 +3,11 @@
     "yarn@1.22",
     "gosec@latest",
     "golines@0.12",
-    "gofumpt@0.7",
-    "golangci-lint@1.61",
-    "govulncheck@1.1",
-    "gotools@0.25",
-    "go@1.22"
+    "gofumpt@0.8.0",
+    "golangci-lint@1.64.8",
+    "govulncheck@1.1.4",
+    "gotools@0.30",
+    "go@1.24.3"
   ],
   "shell": {
     "init_hook": [

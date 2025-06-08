@@ -1,5 +1,5 @@
 name: Release
-run-name: "Release your-module-name binaries version ${{ github.ref_name }} by @${{ github.actor }}"
+run-name: "Release x-repo-name binaries version ${{ github.ref_name }} by @${{ github.actor }}"
 on:
   push:
     tags:

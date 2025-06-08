@@ -110,7 +110,7 @@ generate: generate/code
 
 ## Generate Golang code.
 generate/code:
-	echo "Generating Go code..."
+	$(call _print_step,Generating Golang code...)
 	go generate ./...
 
 .PHONY: format format/go format/cspell
