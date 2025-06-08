@@ -102,11 +102,11 @@ automatically transferred for you.
 However, if you want to use these automations in an existing repository,
 you'll need to create these labels.
 There's a convenience script for that,
-located [here](./bootstrap/add-labels.sh).
+located [here](./bootstrap/add-labels.bash).
 Run the following:
 
 ```shell
-./bootstrap/add-labels.sh <github-account-name> <repo-name>
+./bootstrap/add-labels.bash <github-account-name> <repo-name>
 ```
 
 If you wish to update existing labels, add `--force` to the `gh label create`
