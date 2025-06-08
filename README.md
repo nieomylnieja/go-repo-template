@@ -6,6 +6,7 @@ for creating new Go projects!
 ## Bootstrap
 
 Click `Use this template` button and voila!
+![2024-10-05_22-53](https://github.com/user-attachments/assets/ae397fc7-5fa5-49df-94c1-314572a223d8)
 
 After you're done, you can run the following command to bootstrap the project:
 
