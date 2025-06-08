@@ -96,13 +96,13 @@ check/vulnerabilities:
 ## Verify if the auto generated code has been committed.
 check/generate:
 	$(call _print_step,Checking if generated code matches the provided definitions)
-	$(SCRIPTS_DIR)/check-generate.sh
+	$(SCRIPTS_DIR)/check-generate.bash
 
 ## Verify if the files are formatted.
 ## You must first commit the changes, otherwise it won't detect the diffs.
 check/format:
 	$(call _print_step,Checking if files are formatted)
-	$(SCRIPTS_DIR)/check-formatting.sh
+	$(SCRIPTS_DIR)/check-formatting.bash
 
 .PHONY: generate generate/code
 ## Auto generate files.
@@ -110,7 +110,7 @@ generate: generate/code
 
 ## Generate Golang code.
 generate/code:
-	echo "Generating Go code..."
+	$(call _print_step,Generating Golang code...)
 	go generate ./...
 
 .PHONY: format format/go format/cspell

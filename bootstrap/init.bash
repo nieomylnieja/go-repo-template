@@ -45,7 +45,7 @@ fi
 
 if [[ $NO_VERSIONING ]]; then
   echo "--no-versioning flag is set, removing related files" >&2
-  rm -rf scripts/release-notes.sh release-drafter.yml workflows/release-drafter.yml
+  rm -rf scripts/release-notes.bash release-drafter.yml workflows/release-drafter.yml
 fi
 
 grep -rl x-github-account-name | xargs sed -i "s/x-github-account-name/$ACCOUNT_NAME/g"
