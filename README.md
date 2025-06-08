@@ -31,13 +31,6 @@ add the following flag:
 The script always expects two positional arguments in the specified order and
 a combination of the supported flags (or none).
 
-### GitHub setup
-
-Aside from setting up required GitHub tokens as secrets (mentioned below),
-it's highly recommended enable the following options:
-
-TODO
-
 ## Devbox
 
 This project utilizes [devbox](https://github.com/jetify-com/devbox) in order
