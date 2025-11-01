@@ -1,7 +1,6 @@
 package test
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -107,7 +106,6 @@ func TestBootstrap_NoBinaryFlag(t *testing.T) {
 
 func TestBootstrap_NoVersioningFlag(t *testing.T) {
 	tmpDir := t.TempDir()
-	fmt.Println(tmpDir)
 	copyProject(t, tmpDir)
 
 	output, err := runBootstrap(t, tmpDir, "--no-versioning", testAccountName, testRepoName)
