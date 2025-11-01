@@ -54,9 +54,9 @@ test/coverage:
 	go test -coverprofile=coverage.out ./...
 	go tool cover -html=coverage.out
 
-.PHONY: check check/vet check/lint check/gosec check/spell check/trailing check/markdown check/format check/generate check/vulnerabilities
+.PHONY: check check/vet check/lint check/gosec check/spell check/trailing check/markdown check/generate check/vulnerabilities
 ## Run all checks.
-check: check/vet check/lint check/gosec check/spell check/trailing check/markdown check/format check/generate check/vulnerabilities
+check: check/vet check/lint check/gosec check/spell check/trailing check/markdown check/generate check/vulnerabilities
 
 ## Run 'go vet' on the whole project.
 check/vet:
@@ -120,9 +120,7 @@ format: format/go format/cspell
 ## Format Go files.
 format/go:
 	$(call _print_step,Formatting Go files)
-	gofumpt -l -w -extra .
-	goimports -local=$$(head -1 go.mod | awk '{print $$2}') -w .
-	golines -m 120 --ignore-generated --reformat-tags -w .
+	golangci-lint fmt
 
 ## Format cspell config file.
 format/cspell:

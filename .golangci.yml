@@ -66,11 +66,15 @@ formatters:
   enable:
     - gofumpt
     - goimports
+    - golines
   settings:
     goimports:
       local-prefixes:
         - github.com/nobl9/nobl9-go
     gofumpt:
       extra-rules: true
+    golines:
+      max-len: 120
+      shorten-comments: true
   exclusions:
     generated: strict
