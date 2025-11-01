@@ -26,6 +26,10 @@ func TestBootstrap_DefaultBehavior(t *testing.T) {
 	t.Run("removes bootstrap directory", func(t *testing.T) {
 		assertDirNotExists(t, filepath.Join(tmpDir, "bootstrap"))
 	})
+
+	t.Run("removes test directory", func(t *testing.T) {
+		assertDirNotExists(t, filepath.Join(tmpDir, "test"))
+	})
 	t.Run("renames cmd directory", func(t *testing.T) {
 		oldPath := filepath.Join(tmpDir, "cmd", "x-repo-name")
 		newPath := filepath.Join(tmpDir, "cmd", testRepoName)

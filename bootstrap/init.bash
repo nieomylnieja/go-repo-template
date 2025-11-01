@@ -53,7 +53,6 @@ fi
 
 grep -rl x-github-account-name | xargs sed -i "s/x-github-account-name/$ACCOUNT_NAME/g"
 grep -rl x-repo-name | xargs sed -i "s/x-repo-name/$REPO_NAME/g"
-rm -rf bootstrap
-rm gitsync.json
+rm -rf bootstrap test gitsync.json
 
 echo -e "# $REPO_NAME\n\nTODO" >README.md
