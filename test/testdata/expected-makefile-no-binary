@@ -3,7 +3,7 @@ MAKEFLAGS += --silent --no-print-directory
 
 BIN_DIR := ./bin
 SCRIPTS_DIR := ./scripts
-APP_NAME := x-repo-name
+APP_NAME := test-repo
 LDFLAGS += -s -w
 
 # Print Makefile target step description for check.
@@ -26,19 +26,6 @@ install/devbox:
 update/devbox:
 	$(call _print_step,Update packages managed by devbox)
 	devbox update
-
-.PHONY: build
-## Build x-repo-name binary.
-build:
-	$(call _print_step,Building binary)
-	mkdir -p $(BIN_DIR)
-	go build -ldflags="$(LDFLAGS)" -o $(BIN_DIR)/$(APP_NAME) ./cmd/$(APP_NAME)
-
-.PHONY: release
-## Build and release the binaries.
-release:
-	$(call _print_step,Releasing binary)
-	@goreleaser release --snapshot --clean
 
 .PHONY: test
 ## Run all unit tests.

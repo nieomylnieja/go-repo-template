@@ -3,7 +3,7 @@ MAKEFLAGS += --silent --no-print-directory
 
 BIN_DIR := ./bin
 SCRIPTS_DIR := ./scripts
-APP_NAME := x-repo-name
+APP_NAME := test-repo
 LDFLAGS += -s -w
 
 # Print Makefile target step description for check.
@@ -28,7 +28,7 @@ update/devbox:
 	devbox update
 
 .PHONY: build
-## Build x-repo-name binary.
+## Build test-repo binary.
 build:
 	$(call _print_step,Building binary)
 	mkdir -p $(BIN_DIR)
