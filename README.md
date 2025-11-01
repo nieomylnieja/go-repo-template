@@ -113,6 +113,21 @@ Run the following:
 If you wish to update existing labels, add `--force` to the `gh label create`
 invocation in the script.
 
+## Renovate
+
+This template includes [Renovate](https://docs.renovatebot.com/) configuration
+for automated dependency updates.
+Renovate will automatically create pull requests to update your dependencies
+when new versions are available.
+
+The configuration is located in [.github/renovate.json5](./.github/renovate.json5).
+
+To enable Renovate for your repository:
+
+1. Install the [Renovate GitHub App](https://github.com/apps/renovate).
+2. Grant it access to your repository.
+3. Renovate will automatically start monitoring your dependencies.
+
 ## License
 
 The repository template comes with Mozilla Public License 2.0.

@@ -27,7 +27,6 @@ update/devbox:
 	$(call _print_step,Update packages managed by devbox)
 	devbox update
 
-
 .PHONY: build
 ## Build x-repo-name binary.
 build:
