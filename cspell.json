@@ -16,7 +16,11 @@
     ".idea/",
     "**/node_modules/**",
     "**/*.lock",
-    "package.json"
+    "package.json",
+    "go.mod",
+    "go.sum",
+    "go.work",
+    "go.work.sum"
   ],
   "ignoreRegExpList": [
     "/\\|\\s+[T|G]{2,}\\s+\\|/g",
@@ -32,6 +36,7 @@
     "golangci",
     "golines",
     "gosec",
-    "govulncheck"
+    "govulncheck",
+    "endef"
   ]
 }
