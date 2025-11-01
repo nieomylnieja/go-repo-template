@@ -6,22 +6,22 @@ POSITIONAL_ARGS=()
 
 while [[ $# -gt 0 ]]; do
   case $1 in
-    --no-binary)
-      NO_BINARY=1
-      shift
-      ;;
-    --no-versioning)
-      NO_VERSIONING=1
-      shift
-      ;;
-    -*)
-      echo "Unknown option $1"
-      exit 1
-      ;;
-    *)
-      POSITIONAL_ARGS+=("$1")
-      shift
-      ;;
+  --no-binary)
+    NO_BINARY=1
+    shift
+    ;;
+  --no-versioning)
+    NO_VERSIONING=1
+    shift
+    ;;
+  -*)
+    echo "Unknown option $1"
+    exit 1
+    ;;
+  *)
+    POSITIONAL_ARGS+=("$1")
+    shift
+    ;;
   esac
 done
 
@@ -37,20 +37,22 @@ REPO_NAME=$2
 
 if [[ $NO_BINARY ]]; then
   echo "--no-binary flag is set, removing related files" >&2
-  rm -rf .goreleaser.yml .github/workflows/release.yml bin
-  awk '/\.PHONY: (build|release)/ {d=1}; !d {print}; /^$/ {d=0}' Makefile > Makefile_cp && mv Makefile_cp Makefile
+  rm -rf .goreleaser.yml .github/workflows/release.yml
+  awk '/\.PHONY: (build|release)/ {d=1}; !d {print}; /^$/ {d=0}' Makefile >Makefile_cp && mv Makefile_cp Makefile
 else
   mv cmd/x-repo-name "cmd/$REPO_NAME"
 fi
 
 if [[ $NO_VERSIONING ]]; then
   echo "--no-versioning flag is set, removing related files" >&2
-  rm -rf scripts/release-notes.bash release-drafter.yml workflows/release-drafter.yml
+  rm -rf \
+    .github/scripts/release-notes.bash \
+    .github/release-drafter.yml \
+    .github/workflows/release-drafter.yml
 fi
 
 grep -rl x-github-account-name | xargs sed -i "s/x-github-account-name/$ACCOUNT_NAME/g"
 grep -rl x-repo-name | xargs sed -i "s/x-repo-name/$REPO_NAME/g"
-rm -rf bootstrap
-rm gitsync.json
+rm -rf bootstrap test gitsync.json
 
-echo -e "# $REPO_NAME\nTODO\n" > README.md
+echo -e "# $REPO_NAME\n\nTODO" >README.md

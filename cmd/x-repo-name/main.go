@@ -1,3 +1,5 @@
+// Package main is the entrypoint to your application.
+// Don't put a lot of code in the application directory.
 package main
 
 import (
