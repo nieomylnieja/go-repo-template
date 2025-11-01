@@ -59,6 +59,10 @@ func TestBootstrap_DefaultBehavior(t *testing.T) {
 		assertNotContains(t, golangciYml, "x-repo-name")
 		assertContains(t, golangciYml, testAccountName)
 		assertContains(t, golangciYml, testRepoName)
+
+		featureRequest := readFile(t, filepath.Join(tmpDir, ".github", "ISSUE_TEMPLATE", "feature_request.md"))
+		assertNotContains(t, featureRequest, "x-repo-name")
+		assertContains(t, featureRequest, testRepoName)
 	})
 	t.Run("creates new README.md", func(t *testing.T) {
 		readme := readFile(t, filepath.Join(tmpDir, "README.md"))
