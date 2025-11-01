@@ -1,6 +1,7 @@
 package test
 
 import (
+	_ "embed"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -8,6 +9,12 @@ import (
 	"sync"
 	"testing"
 )
+
+//go:embed testdata/expected-makefile-with-binary
+var expectedMakefileWithBinary string
+
+//go:embed testdata/expected-makefile-no-binary
+var expectedMakefileNoBinary string
 
 const (
 	testAccountName = "test-account"
@@ -69,6 +76,19 @@ func TestBootstrap_DefaultBehavior(t *testing.T) {
 		assertFileExists(t, filepath.Join(tmpDir, ".github", "release-drafter.yml"))
 		assertFileExists(t, filepath.Join(tmpDir, ".github", "workflows", "release-drafter.yml"))
 	})
+
+	t.Run("keeps build and release targets in Makefile", func(t *testing.T) {
+		actualMakefile := readFile(t, filepath.Join(tmpDir, "Makefile"))
+		expectedMakefile := getExpectedMakefile(t, true)
+
+		if actualMakefile != expectedMakefile {
+			t.Errorf(
+				"Makefile content differs from expected.\nExpected:\n%s\n\nGot:\n%s",
+				expectedMakefile,
+				actualMakefile,
+			)
+		}
+	})
 }
 
 func TestBootstrap_NoBinaryFlag(t *testing.T) {
@@ -85,10 +105,16 @@ func TestBootstrap_NoBinaryFlag(t *testing.T) {
 		assertFileNotExists(t, filepath.Join(tmpDir, ".github", "workflows", "release.yml"))
 	})
 	t.Run("removes build and release targets from Makefile", func(t *testing.T) {
-		makefile := readFile(t, filepath.Join(tmpDir, "Makefile"))
+		actualMakefile := readFile(t, filepath.Join(tmpDir, "Makefile"))
+		expectedMakefile := getExpectedMakefile(t, false)
 
-		assertNotContains(t, makefile, ".PHONY: build")
-		assertNotContains(t, makefile, ".PHONY: release")
+		if actualMakefile != expectedMakefile {
+			t.Errorf(
+				"Makefile content differs from expected.\nExpected:\n%s\n\nGot:\n%s",
+				expectedMakefile,
+				actualMakefile,
+			)
+		}
 	})
 	t.Run("does not rename cmd directory", func(t *testing.T) {
 		oldPath := filepath.Join(tmpDir, "cmd", "x-repo-name")
@@ -217,6 +243,15 @@ func TestBootstrap_FlagAfterPositionalArgs(t *testing.T) {
 		t.Fatalf("Bootstrap should handle flags after positional args: %v", err)
 	}
 	assertFileNotExists(t, filepath.Join(tmpDir, ".goreleaser.yml"))
+}
+
+func getExpectedMakefile(t *testing.T, includeBinary bool) string {
+	t.Helper()
+
+	if includeBinary {
+		return expectedMakefileWithBinary
+	}
+	return expectedMakefileNoBinary
 }
 
 func runBootstrap(t *testing.T, tmpDir string, args ...string) (string, error) {
