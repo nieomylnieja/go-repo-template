@@ -1,6 +1,6 @@
 {
   "packages": [
-    "yarn@1.22",
+    "yarn@1.22.22",
     "gosec@latest",
     "golines@0.12",
     "gofumpt@0.8.0",
