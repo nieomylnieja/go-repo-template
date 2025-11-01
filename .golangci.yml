@@ -70,7 +70,7 @@ formatters:
   settings:
     goimports:
       local-prefixes:
-        - github.com/nobl9/nobl9-go
+        - github.com/x-github-account-name/x-repo-name
     gofumpt:
       extra-rules: true
     golines:

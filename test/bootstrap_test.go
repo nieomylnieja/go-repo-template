@@ -34,18 +34,21 @@ func TestBootstrap_DefaultBehavior(t *testing.T) {
 		assertDirNotExists(t, oldPath)
 		assertDirExists(t, newPath)
 	})
-	t.Run("replaces account name in files", func(t *testing.T) {
+	t.Run("replaces repo and account names in files", func(t *testing.T) {
 		goMod := readFile(t, filepath.Join(tmpDir, "go.mod"))
 		assertNotContains(t, goMod, "x-github-account-name")
-		assertContains(t, goMod, testAccountName)
-	})
-	t.Run("replaces repo name in files", func(t *testing.T) {
-		goMod := readFile(t, filepath.Join(tmpDir, "go.mod"))
 		assertNotContains(t, goMod, "x-repo-name")
+		assertContains(t, goMod, testAccountName)
 		assertContains(t, goMod, testRepoName)
 
 		makefile := readFile(t, filepath.Join(tmpDir, "Makefile"))
 		assertNotContains(t, makefile, "x-repo-name")
+
+		golangciYml := readFile(t, filepath.Join(tmpDir, ".golangci.yml"))
+		assertNotContains(t, golangciYml, "x-github-account-name")
+		assertNotContains(t, golangciYml, "x-repo-name")
+		assertContains(t, golangciYml, testAccountName)
+		assertContains(t, golangciYml, testRepoName)
 	})
 	t.Run("creates new README.md", func(t *testing.T) {
 		readme := readFile(t, filepath.Join(tmpDir, "README.md"))
