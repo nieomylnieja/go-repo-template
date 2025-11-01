@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: Suggest an idea to help us improve the go-repo-template.
+about: Suggest an idea to help us improve the x-repo-name.
 title: "[FEAT]"
 labels: enhancement
 assignees: ''
