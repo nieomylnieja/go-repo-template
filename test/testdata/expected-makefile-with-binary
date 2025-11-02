@@ -75,7 +75,7 @@ check/gosec:
 ## Check spelling, rules are defined in cspell.json.
 check/spell:
 	$(call _print_step,Verifying spelling)
-	yarn --silent cspell --no-progress '**/**'
+	cspell --no-progress '**/**'
 
 ## Check for trailing whitespaces in any of the projects' files.
 check/trailing:
@@ -85,7 +85,7 @@ check/trailing:
 ## Check markdown files for potential issues with markdownlint.
 check/markdown:
 	$(call _print_step,Verifying Markdown files)
-	yarn --silent markdownlint '**/*.md' --ignore 'node_modules'
+	markdownlint '**/*.md' --ignore 'node_modules'
 
 ## Check for potential vulnerabilities across all Go dependencies.
 check/vulnerabilities:
@@ -112,28 +112,14 @@ generate/code:
 	$(call _print_step,Generating Golang code...)
 	go generate ./...
 
-.PHONY: format format/go format/cspell
+.PHONY: format format/go
 ## Format files.
-format: format/go format/cspell
+format: format/go
 
 ## Format Go files.
 format/go:
 	$(call _print_step,Formatting Go files)
 	golangci-lint fmt
-
-## Format cspell config file.
-format/cspell:
-	$(call _print_step,Formatting cspell.json configuration (words list))
-	yarn --silent format-cspell-config
-
-.PHONY: install install/yarn
-## Install all dev dependencies.
-install: install/yarn
-
-## Install JavaScript dependencies with yarn.
-install/yarn:
-	$(call _print_step,Installing yarn dependencies)
-	yarn --silent install
 
 .PHONY: help
 ## Print this help message.
