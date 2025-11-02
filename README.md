@@ -149,9 +149,9 @@ In order to sync the changes for managed repositories run:
 
 ```shell
 gitsync -c gitsync.json sync
+```
 
 ## License
 
 The repository template comes with Mozilla Public License 2.0.
 Feel free to change the license to any that suits you.
-```
