@@ -38,7 +38,7 @@ build:
 ## Build and release the binaries.
 release:
 	$(call _print_step,Releasing binary)
-	@goreleaser release --snapshot --clean
+	goreleaser release --snapshot --clean
 
 .PHONY: test
 ## Run all unit tests.
