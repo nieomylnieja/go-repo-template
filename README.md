@@ -128,11 +128,6 @@ To enable Renovate for your repository:
 2. Grant it access to your repository.
 3. Renovate will automatically start monitoring your dependencies.
 
-## License
-
-The repository template comes with Mozilla Public License 2.0.
-Feel free to change the license to any that suits you.
-
 ## Gitsync
 
 The author of this repository also uses it as a staple/root
@@ -154,4 +149,9 @@ In order to sync the changes for managed repositories run:
 
 ```shell
 gitsync -c gitsync.json sync
+
+## License
+
+The repository template comes with Mozilla Public License 2.0.
+Feel free to change the license to any that suits you.
 ```
