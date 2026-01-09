@@ -103,12 +103,12 @@ check/generate:
 	$(call _print_step,Checking if generated code matches the provided definitions)
 	$(SCRIPTS_DIR)/check-generate.bash
 
-.PHONY: generate generate/code
+.PHONY: generate generate/go
 ## Auto generate files.
-generate: generate/code
+generate: generate/go
 
 ## Generate Golang code.
-generate/code:
+generate/go:
 	$(call _print_step,Generating Golang code...)
 	go generate ./...
 
