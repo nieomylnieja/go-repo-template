@@ -5,96 +5,105 @@ scripts_dir := "./scripts"
 app_name := "test-repo"
 ldflags := "-s -w"
 
+# Helper function to print step headers
+
+print_step := 'printf -- "------\n%s...\n"'
+
 # Print this help message
 [private]
 default:
-  @just --list
+    @just --list
 
 # Activate developer environment using devbox. Run `just install-devbox` first if you don't have devbox installed.
 activate:
-  devbox shell
+    devbox shell
 
 # Install devbox binary
 install-devbox:
-  @printf -- '------\nInstalling devbox...\n'
-  curl -fsSL https://get.jetpack.io/devbox | bash
+    @{{ print_step }} "Installing devbox"
+    curl -fsSL https://get.jetpack.io/devbox | bash
 
 # Update devbox managed package versions
 update-devbox:
-  @printf -- '------\nUpdate packages managed by devbox...\n'
-  devbox update
+    @{{ print_step }} "Update packages managed by devbox"
+    devbox update
 
 # Run all unit tests
 test:
-  @printf -- '------\nRunning unit tests...\n'
-  go test -race -cover ./...
+    @{{ print_step }} "Running unit tests"
+    go test -race -cover ./...
 
 # Run benchmark tests
 test-benchmark:
-  @printf -- '------\nRunning benchmark tests...\n'
-  go test -bench=. -benchmem ./...
+    @{{ print_step }} "Running benchmark tests"
+    go test -bench=. -benchmem ./...
 
 # Produce test coverage report and inspect it in browser
 test-coverage:
-  @printf -- '------\nRunning test coverage report...\n'
-  go test -coverprofile=coverage.out ./...
-  go tool cover -html=coverage.out
+    @{{ print_step }} "Running test coverage report"
+    go test -coverprofile=coverage.out ./...
+    go tool cover -html=coverage.out
 
 # Run all checks
 check: check-vet check-lint check-gosec check-spell check-trailing check-markdown check-generate check-vulnerabilities
 
 # Run 'go vet' on the whole project
 check-vet:
-  @printf -- '------\nRunning go vet...\n'
-  go vet ./...
+    @{{ print_step }} "Running go vet"
+    go vet ./...
 
 # Run golangci-lint all-in-one linter with configuration defined inside .golangci.yml
 check-lint:
-  @printf -- '------\nRunning golangci-lint...\n'
-  golangci-lint run
+    @{{ print_step }} "Running golangci-lint"
+    golangci-lint run
 
 # Check for security problems using gosec, which inspects the Go code by scanning the AST
 check-gosec:
-  @printf -- '------\nRunning gosec...\n'
-  gosec -exclude-generated -quiet ./...
+    @{{ print_step }} "Running gosec"
+    gosec -exclude-generated -quiet ./...
 
 # Check spelling, rules are defined in cspell.json
 check-spell:
-  @printf -- '------\nVerifying spelling...\n'
-  cspell --no-progress '**/**'
+    @{{ print_step }} "Verifying spelling"
+    cspell --no-progress '**/**'
 
 # Check for trailing whitespaces in any of the projects' files
 check-trailing:
-  @printf -- '------\nLooking for trailing whitespaces...\n'
-  {{scripts_dir}}/check-trailing-whitespaces.bash
+    @{{ print_step }} "Looking for trailing whitespaces"
+    {{ scripts_dir }}/check-trailing-whitespaces.bash
 
 # Check markdown files for potential issues with markdownlint
 check-markdown:
-  @printf -- '------\nVerifying Markdown files...\n'
-  markdownlint '**/*.md'
+    @{{ print_step }} "Verifying Markdown files"
+    markdownlint '**/*.md'
 
 # Check for potential vulnerabilities across all Go dependencies
 check-vulnerabilities:
-  @printf -- '------\nRunning govulncheck...\n'
-  govulncheck ./...
+    @{{ print_step }} "Running govulncheck"
+    govulncheck ./...
 
 # Verify if the auto generated code has been committed
 check-generate:
-  @printf -- '------\nChecking if generated code matches the provided definitions...\n'
-  {{scripts_dir}}/check-generate.bash
+    @{{ print_step }} "Checking if generated code matches the provided definitions"
+    {{ scripts_dir }}/check-generate.bash
 
 # Auto generate files
 generate: generate-go
 
 # Generate Golang code
 generate-go:
-  @printf -- '------\nGenerating Golang code...\n'
-  go generate ./...
+    @{{ print_step }} "Generating Golang code"
+    go generate ./...
 
 # Format files
-format: format-go
+format: format-go format-just
 
 # Format Go files
 format-go:
-  @printf -- '------\nFormatting Go files...\n'
-  golangci-lint fmt
+    @{{ print_step }} "Formatting Go files"
+    golangci-lint fmt
+
+# Format justfile
+format-just:
+    @{{ print_step }} "Formatting justfile"
+    just --fmt --unstable
