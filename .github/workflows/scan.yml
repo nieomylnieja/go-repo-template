@@ -14,4 +14,4 @@ jobs:
         with:
           enable-cache: true
       - name: Run Golang Vulncheck
-        run: devbox run -- make check/vulns
+        run: devbox run -- just check-vulnerabilities

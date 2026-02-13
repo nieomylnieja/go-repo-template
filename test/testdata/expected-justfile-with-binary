@@ -1,0 +1,111 @@
+set shell := ["bash", "-c"]
+
+bin_dir := "./bin"
+scripts_dir := "./scripts"
+app_name := "test-repo"
+ldflags := "-s -w"
+
+# Print this help message
+[private]
+default:
+  @just --list
+
+# Activate developer environment using devbox. Run `just install-devbox` first if you don't have devbox installed.
+activate:
+  devbox shell
+
+# Install devbox binary
+install-devbox:
+  @printf -- '------\nInstalling devbox...\n'
+  curl -fsSL https://get.jetpack.io/devbox | bash
+
+# Update devbox managed package versions
+update-devbox:
+  @printf -- '------\nUpdate packages managed by devbox...\n'
+  devbox update
+
+# Build test-repo binary
+build:
+  @printf -- '------\nBuilding binary...\n'
+  mkdir -p {{bin_dir}}
+  go build -ldflags="{{ldflags}}" -o {{bin_dir}}/{{app_name}} ./cmd/{{app_name}}
+
+# Build and release the binaries
+release:
+  @printf -- '------\nReleasing binary...\n'
+  goreleaser release --snapshot --clean
+
+# Run all unit tests
+test:
+  @printf -- '------\nRunning unit tests...\n'
+  go test -race -cover ./...
+
+# Run benchmark tests
+test-benchmark:
+  @printf -- '------\nRunning benchmark tests...\n'
+  go test -bench=. -benchmem ./...
+
+# Produce test coverage report and inspect it in browser
+test-coverage:
+  @printf -- '------\nRunning test coverage report...\n'
+  go test -coverprofile=coverage.out ./...
+  go tool cover -html=coverage.out
+
+# Run all checks
+check: check-vet check-lint check-gosec check-spell check-trailing check-markdown check-generate check-vulnerabilities
+
+# Run 'go vet' on the whole project
+check-vet:
+  @printf -- '------\nRunning go vet...\n'
+  go vet ./...
+
+# Run golangci-lint all-in-one linter with configuration defined inside .golangci.yml
+check-lint:
+  @printf -- '------\nRunning golangci-lint...\n'
+  golangci-lint run
+
+# Check for security problems using gosec, which inspects the Go code by scanning the AST
+check-gosec:
+  @printf -- '------\nRunning gosec...\n'
+  gosec -exclude-generated -quiet ./...
+
+# Check spelling, rules are defined in cspell.json
+check-spell:
+  @printf -- '------\nVerifying spelling...\n'
+  cspell --no-progress '**/**'
+
+# Check for trailing whitespaces in any of the projects' files
+check-trailing:
+  @printf -- '------\nLooking for trailing whitespaces...\n'
+  {{scripts_dir}}/check-trailing-whitespaces.bash
+
+# Check markdown files for potential issues with markdownlint
+check-markdown:
+  @printf -- '------\nVerifying Markdown files...\n'
+  markdownlint '**/*.md'
+
+# Check for potential vulnerabilities across all Go dependencies
+check-vulnerabilities:
+  @printf -- '------\nRunning govulncheck...\n'
+  govulncheck ./...
+
+# Verify if the auto generated code has been committed
+check-generate:
+  @printf -- '------\nChecking if generated code matches the provided definitions...\n'
+  {{scripts_dir}}/check-generate.bash
+
+# Auto generate files
+generate: generate-go
+
+# Generate Golang code
+generate-go:
+  @printf -- '------\nGenerating Golang code...\n'
+  go generate ./...
+
+# Format files
+format: format-go
+
+# Format Go files
+format-go:
+  @printf -- '------\nFormatting Go files...\n'
+  golangci-lint fmt

@@ -10,11 +10,11 @@ import (
 	"testing"
 )
 
-//go:embed testdata/expected-makefile-with-binary
-var expectedMakefileWithBinary string
+//go:embed testdata/expected-justfile-with-binary
+var expectedJustfileWithBinary string
 
-//go:embed testdata/expected-makefile-no-binary
-var expectedMakefileNoBinary string
+//go:embed testdata/expected-justfile-no-binary
+var expectedJustfileNoBinary string
 
 const (
 	testAccountName = "test-account"
@@ -51,8 +51,8 @@ func TestBootstrap_DefaultBehavior(t *testing.T) {
 		assertContains(t, goMod, testAccountName)
 		assertContains(t, goMod, testRepoName)
 
-		makefile := readFile(t, filepath.Join(tmpDir, "Makefile"))
-		assertNotContains(t, makefile, "x-repo-name")
+		justfile := readFile(t, filepath.Join(tmpDir, "justfile"))
+		assertNotContains(t, justfile, "x-repo-name")
 
 		golangciYml := readFile(t, filepath.Join(tmpDir, ".golangci.yml"))
 		assertNotContains(t, golangciYml, "x-github-account-name")
@@ -81,15 +81,15 @@ func TestBootstrap_DefaultBehavior(t *testing.T) {
 		assertFileExists(t, filepath.Join(tmpDir, ".github", "workflows", "release-drafter.yml"))
 	})
 
-	t.Run("keeps build and release targets in Makefile", func(t *testing.T) {
-		actualMakefile := readFile(t, filepath.Join(tmpDir, "Makefile"))
-		expectedMakefile := getExpectedMakefile(t, true)
+	t.Run("keeps build and release recipes in justfile", func(t *testing.T) {
+		actualJustfile := readFile(t, filepath.Join(tmpDir, "justfile"))
+		expectedJustfile := getExpectedJustfile(t, true)
 
-		if actualMakefile != expectedMakefile {
+		if actualJustfile != expectedJustfile {
 			t.Errorf(
-				"Makefile content differs from expected.\nExpected:\n%s\n\nGot:\n%s",
-				expectedMakefile,
-				actualMakefile,
+				"justfile content differs from expected.\nExpected:\n%s\n\nGot:\n%s",
+				expectedJustfile,
+				actualJustfile,
 			)
 		}
 	})
@@ -108,15 +108,15 @@ func TestBootstrap_NoBinaryFlag(t *testing.T) {
 		assertFileNotExists(t, filepath.Join(tmpDir, ".goreleaser.yml"))
 		assertFileNotExists(t, filepath.Join(tmpDir, ".github", "workflows", "release.yml"))
 	})
-	t.Run("removes build and release targets from Makefile", func(t *testing.T) {
-		actualMakefile := readFile(t, filepath.Join(tmpDir, "Makefile"))
-		expectedMakefile := getExpectedMakefile(t, false)
+	t.Run("removes build and release recipes from justfile", func(t *testing.T) {
+		actualJustfile := readFile(t, filepath.Join(tmpDir, "justfile"))
+		expectedJustfile := getExpectedJustfile(t, false)
 
-		if actualMakefile != expectedMakefile {
+		if actualJustfile != expectedJustfile {
 			t.Errorf(
-				"Makefile content differs from expected.\nExpected:\n%s\n\nGot:\n%s",
-				expectedMakefile,
-				actualMakefile,
+				"justfile content differs from expected.\nExpected:\n%s\n\nGot:\n%s",
+				expectedJustfile,
+				actualJustfile,
 			)
 		}
 	})
@@ -249,13 +249,13 @@ func TestBootstrap_FlagAfterPositionalArgs(t *testing.T) {
 	assertFileNotExists(t, filepath.Join(tmpDir, ".goreleaser.yml"))
 }
 
-func getExpectedMakefile(t *testing.T, includeBinary bool) string {
+func getExpectedJustfile(t *testing.T, includeBinary bool) string {
 	t.Helper()
 
 	if includeBinary {
-		return expectedMakefileWithBinary
+		return expectedJustfileWithBinary
 	}
-	return expectedMakefileNoBinary
+	return expectedJustfileNoBinary
 }
 
 func runBootstrap(t *testing.T, tmpDir string, args ...string) (string, error) {

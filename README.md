@@ -43,40 +43,46 @@ The template includes an example of
 [recommended Go project layout](https://github.com/golang-standards/project-layout)
 which includes `cmd`, `pkg` and `internal` directories.
 
-## Makefile
+## justfile
 
-Makefile provides all the basic utilities for the development workflow.
-Feel free to extend it with additional targets as you see fit.
-The same Makefile targets are used in CI, this ensures consistent results
+justfile provides all the basic utilities for the development workflow.
+Feel free to extend it with additional recipes as you see fit.
+The same justfile recipes are used in CI, this ensures consistent results
 for both CI and your local machine.
 
-You can quickly inspect the targets of Makefile by running:
+You can quickly inspect the recipes of justfile by running:
 
 ```shell
-make help
+just --list
 ```
 
-When writing new targets, make sure you document them with double `#` character
-and place the comment directly above the target, like so:
+or simply:
 
-```makefile
-## Document me!
-new-target:
+```shell
+just
+```
+
+When writing new recipes, make sure you document them with a `#` comment
+directly above the recipe, like so:
+
+```just
+# Document me!
+new-recipe:
   echo "Hello"
 ```
 
 ## CI
 
-Continuous integration pipelines utilize the same Makefile commands which
+Continuous integration pipelines utilize the same justfile recipes which
 you run locally within reproducible `devbox` environment.
 This ensures consistent behavior of the executed checks
 and makes local debugging easier.
 
 ## Testing
 
-You can run all unit tests with `make test`.
+You can run all unit tests with `just test`.
 We also encourage inspecting test coverage during development, you can verify
-if the paths you're interested in are covered with `make test/coverage`.
+if the paths you're interested in are covered with `just test-coverage`.
 
 ## Releasing binaries
 

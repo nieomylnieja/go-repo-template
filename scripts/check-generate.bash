@@ -5,6 +5,8 @@ set -e
 GEN_PATHS="**/*.go **/*.yaml **/*.json"
 TMP_DIR=$(mktemp -d)
 
+trap "rm -rf '$TMP_DIR'" EXIT
+
 cleanup_git() {
   git -C "$TMP_DIR" clean -df
   git -C "$TMP_DIR" checkout -- .
@@ -14,7 +16,7 @@ main() {
   cp -r . "$TMP_DIR"
   cleanup_git
 
-  make -C "$TMP_DIR" generate
+  just --working-directory "$TMP_DIR" generate
 
   CHANGED=$(git -C "$TMP_DIR" status --porcelain ${GEN_PATHS})
   if [ -n "${CHANGED}" ]; then
