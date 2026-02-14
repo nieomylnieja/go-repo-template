@@ -80,10 +80,12 @@ if [[ $NO_VERSIONING ]]; then
     .github/workflows/release-drafter.yml
 fi
 
-grep -rl x-github-account-name . 2>/dev/null |
-  xargs -r sed -i "s/x-github-account-name/$ACCOUNT_NAME/g" || true
-grep -rl x-repo-name . 2>/dev/null |
-  xargs -r sed -i "s/x-repo-name/$REPO_NAME/g" || true
+grep -rl x-github-account-name . 2>/dev/null | while IFS= read -r file; do
+  sed -i.bak "s/x-github-account-name/$ACCOUNT_NAME/g" "$file" && rm -f "$file.bak" || true
+done
+grep -rl x-repo-name . 2>/dev/null | while IFS= read -r file; do
+  sed -i.bak "s/x-repo-name/$REPO_NAME/g" "$file" && rm -f "$file.bak" || true
+done
 
 rm -rf bootstrap test gitsync.json
 

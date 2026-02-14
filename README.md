@@ -79,7 +79,7 @@ and makes local debugging easier.
 ## Testing
 
 You can run all unit tests with `just test`.
-I also encourage inspecting test coverage during development, you can verify
+We also encourage inspecting test coverage during development, you can verify
 if the paths you're interested in are covered with `just test-coverage`.
 
 ## Releasing binaries

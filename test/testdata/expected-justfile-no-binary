@@ -43,7 +43,7 @@ test-coverage:
     go tool cover -html=coverage.out
 
 # Run all checks
-check: check-vet check-lint check-gosec check-spell check-trailing check-markdown check-generate check-vulnerabilities
+check: check-vet check-lint check-spell check-trailing check-markdown check-generate check-vulnerabilities
 
 # Run 'go vet' on the whole project
 check-vet:
@@ -54,11 +54,6 @@ check-vet:
 check-lint:
     @{{ print_step }} "Running golangci-lint"
     golangci-lint run
-
-# Check for security problems using gosec, which inspects the Go code by scanning the AST
-check-gosec:
-    @{{ print_step }} "Running gosec"
-    gosec -exclude-generated -quiet ./...
 
 # Check spelling, rules are defined in cspell.json
 check-spell:
