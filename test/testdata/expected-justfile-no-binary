@@ -5,8 +5,6 @@ scripts_dir := "./scripts"
 app_name := "test-repo"
 ldflags := "-s -w"
 
-# Helper function to print step headers
-
 print_step := 'printf -- "------\n%s...\n"'
 
 # Print this help message

@@ -39,7 +39,6 @@ if [[ $NO_BINARY ]]; then
   echo "--no-binary flag is set, removing related files" >&2
   rm -rf .goreleaser.yml .github/workflows/release.yml
 
-  # Verify justfile exists before processing
   if [[ ! -f justfile ]]; then
     echo "ERROR: justfile not found, cannot remove binary recipes" >&2
     exit 1
@@ -55,14 +54,12 @@ if [[ $NO_BINARY ]]; then
     !in_binary && !in_release { print }
   ' justfile >justfile_cp
 
-  # Verify AWK produced output
   if [[ ! -s justfile_cp ]]; then
     echo "ERROR: AWK script produced empty justfile, this indicates a logic error" >&2
     rm -f justfile_cp
     exit 1
   fi
 
-  # Verify the output has expected structure (at least some recipes remain)
   if ! grep -q '^[a-z].*:' justfile_cp; then
     echo "ERROR: Processed justfile appears invalid (no recipes found)" >&2
     echo "Original justfile preserved, removing failed copy" >&2
@@ -83,9 +80,10 @@ if [[ $NO_VERSIONING ]]; then
     .github/workflows/release-drafter.yml
 fi
 
-# Replace template strings, tolerating missing matches (for idempotency)
-grep -rl x-github-account-name . 2>/dev/null | xargs -r sed -i "s/x-github-account-name/$ACCOUNT_NAME/g" || true
-grep -rl x-repo-name . 2>/dev/null | xargs -r sed -i "s/x-repo-name/$REPO_NAME/g" || true
+grep -rl x-github-account-name . 2>/dev/null |
+  xargs -r sed -i "s/x-github-account-name/$ACCOUNT_NAME/g" || true
+grep -rl x-repo-name . 2>/dev/null |
+  xargs -r sed -i "s/x-repo-name/$REPO_NAME/g" || true
 
 rm -rf bootstrap test gitsync.json
 

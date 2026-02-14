@@ -15,6 +15,7 @@ linters:
     - errcheck
     - exhaustive
     - gocognit
+    - gochecknoinits
     - gocritic
     - gocyclo
     - goheader

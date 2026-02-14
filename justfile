@@ -5,8 +5,6 @@ scripts_dir := "./scripts"
 app_name := "x-repo-name"
 ldflags := "-s -w"
 
-# Helper function to print step headers
-
 print_step := 'printf -- "------\n%s...\n"'
 
 # Print this help message
@@ -14,7 +12,7 @@ print_step := 'printf -- "------\n%s...\n"'
 default:
     @just --list
 
-# Activate developer environment using devbox. Run `just install-devbox` first if you don't have devbox installed.
+# Activate developer environment using devbox, run `just install-devbox` first if you don't have devbox installed
 activate:
     devbox shell
 
