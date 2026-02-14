@@ -10,16 +10,24 @@ linters:
   default: none
   enable:
     - asciicheck
+    - bidichk
     - bodyclose
+    - containedctx
+    - contextcheck
     - dogsled
+    - durationcheck
     - errcheck
+    - errorlint
+    - errname
     - exhaustive
-    - gocognit
     - gochecknoinits
+    - gocognit
     - gocritic
     - gocyclo
+    - godoclint
     - goheader
     - goprintffuncname
+    - gosec
     - govet
     - importas
     - ineffassign
@@ -34,6 +42,7 @@ linters:
     - rowserrcheck
     - sqlclosecheck
     - staticcheck
+    - thelper
     - tparallel
     - unconvert
     - unparam
@@ -64,6 +73,14 @@ linters:
       - linters:
           - revive
         text: "error-strings: error strings should not be capitalized or end with punctuation or a newline"
+      - linters:
+          - gosec
+        text: "G204:"
+        path: "test/.*"
+      - linters:
+          - gosec
+        text: "G304:"
+        path: "test/.*"
 issues:
   # Value 0 means show all.
   max-issues-per-linter: 0

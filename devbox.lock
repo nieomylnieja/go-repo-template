@@ -145,54 +145,6 @@
         }
       }
     },
-    "gosec@2.22.11": {
-      "last_modified": "2025-12-31T03:27:36Z",
-      "resolved": "github:NixOS/nixpkgs/f665af0cdb70ed27e1bd8f9fdfecaf451260fc55#gosec",
-      "source": "devbox-search",
-      "version": "2.22.11",
-      "systems": {
-        "aarch64-darwin": {
-          "outputs": [
-            {
-              "name": "out",
-              "path": "/nix/store/d48hjs33cwfqnmx3ay3ms2rrds01a7hy-gosec-2.22.11",
-              "default": true
-            }
-          ],
-          "store_path": "/nix/store/d48hjs33cwfqnmx3ay3ms2rrds01a7hy-gosec-2.22.11"
-        },
-        "aarch64-linux": {
-          "outputs": [
-            {
-              "name": "out",
-              "path": "/nix/store/568licqnhv8w64m8aq8vikkr5ay1rfz0-gosec-2.22.11",
-              "default": true
-            }
-          ],
-          "store_path": "/nix/store/568licqnhv8w64m8aq8vikkr5ay1rfz0-gosec-2.22.11"
-        },
-        "x86_64-darwin": {
-          "outputs": [
-            {
-              "name": "out",
-              "path": "/nix/store/hpvplrfz22jiqzlsjamy86xkcr1naz8n-gosec-2.22.11",
-              "default": true
-            }
-          ],
-          "store_path": "/nix/store/hpvplrfz22jiqzlsjamy86xkcr1naz8n-gosec-2.22.11"
-        },
-        "x86_64-linux": {
-          "outputs": [
-            {
-              "name": "out",
-              "path": "/nix/store/ffgpg74xv4bxkym99gkw76ggmr7q3fxq-gosec-2.22.11",
-              "default": true
-            }
-          ],
-          "store_path": "/nix/store/ffgpg74xv4bxkym99gkw76ggmr7q3fxq-gosec-2.22.11"
-        }
-      }
-    },
     "gotools@0.34.0": {
       "last_modified": "2025-10-07T08:41:47Z",
       "resolved": "github:NixOS/nixpkgs/bce5fe2bb998488d8e7e7856315f90496723793c#gotools",

@@ -3,7 +3,6 @@
   "packages": [
     "govulncheck@1.1.4",
     "gotools@0.34.0",
-    "gosec@2.22.11",
     "go@1.25.5",
     "markdownlint-cli@0.47.0",
     "golangci-lint@2.8.0",
