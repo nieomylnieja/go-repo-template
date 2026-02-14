@@ -16,7 +16,7 @@ main() {
   cp -r . "$TMP_DIR"
   cleanup_git
 
-  just --working-directory "$TMP_DIR" generate
+  just --justfile "$TMP_DIR/justfile" --working-directory "$TMP_DIR" generate
 
   CHANGED=$(git -C "$TMP_DIR" status --porcelain ${GEN_PATHS})
   if [ -n "${CHANGED}" ]; then
