@@ -43,40 +43,44 @@ The template includes an example of
 [recommended Go project layout](https://github.com/golang-standards/project-layout)
 which includes `cmd`, `pkg` and `internal` directories.
 
-## Makefile
+## justfile
 
-Makefile provides all the basic utilities for the development workflow.
-Feel free to extend it with additional targets as you see fit.
-The same Makefile targets are used in CI, this ensures consistent results
-for both CI and your local machine.
+[justfile](https://github.com/casey/just) provides all the basic utilities
+for the development workflow.
+Feel free to extend it with additional recipes as you see fit.
+The same justfile recipes are used in CI, this ensures consistent results
+for both remote and local machines.
 
-You can quickly inspect the targets of Makefile by running:
+You can quickly inspect the recipes of justfile by running either:
 
 ```shell
-make help
+just --list
+# or simply
+just
 ```
 
-When writing new targets, make sure you document them with double `#` character
-and place the comment directly above the target, like so:
+When writing new recipes, make sure you document them with a `#` comment
+directly above the recipe, like so:
 
-```makefile
-## Document me!
-new-target:
+```just
+# Document me!
+new-recipe:
   echo "Hello"
 ```
 
 ## CI
 
-Continuous integration pipelines utilize the same Makefile commands which
+Continuous integration pipelines utilize the same
+[justfile](./justfile) recipes which
 you run locally within reproducible `devbox` environment.
 This ensures consistent behavior of the executed checks
 and makes local debugging easier.
 
 ## Testing
 
-You can run all unit tests with `make test`.
+You can run all unit tests with `just test`.
 We also encourage inspecting test coverage during development, you can verify
-if the paths you're interested in are covered with `make test/coverage`.
+if the paths you're interested in are covered with `just test-coverage`.
 
 ## Releasing binaries
 
@@ -133,7 +137,7 @@ To enable Renovate for your repository:
 The author of this repository also uses it as a staple/root
 for other repositories to follow.
 This means things like linter configs or CI/CD workflows in these repositories
-are supposed to be kept in sync with this repository (with some variations).
+are supposed to be kept in sync with **this** repository (with some variations).
 
 This is achieved with a tool called [gitsync](https://github.com/nieomylnieja/gitsync).
 Configuration file for the tool is [gitsync.json](./gitsync.json).
