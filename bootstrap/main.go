@@ -3,8 +3,8 @@ package main
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -29,6 +29,38 @@ func run() error {
 	cfg := &config{
 		includeBinary:  true,
 		includeVersion: true,
+	}
+
+	// Check for non-interactive mode via environment variables (for testing)
+	if accountName := os.Getenv("BOOTSTRAP_ACCOUNT"); accountName != "" {
+		repoName := os.Getenv("BOOTSTRAP_REPO")
+		if repoName == "" {
+			return fmt.Errorf("BOOTSTRAP_REPO environment variable is required when BOOTSTRAP_ACCOUNT is set")
+		}
+
+		cfg.accountName = strings.TrimSpace(accountName)
+		cfg.repoName = strings.TrimSpace(repoName)
+		cfg.includeBinary = os.Getenv("BOOTSTRAP_NO_BINARY") != "true"
+		cfg.includeVersion = os.Getenv("BOOTSTRAP_NO_VERSIONING") != "true"
+
+		fmt.Println("\n🚀 Bootstrapping project with the following configuration:")
+		fmt.Printf("  Account: %s\n", cfg.accountName)
+		fmt.Printf("  Repository: %s\n", cfg.repoName)
+		fmt.Printf("  Binary support: %v\n", cfg.includeBinary)
+		fmt.Printf("  Versioning support: %v\n\n", cfg.includeVersion)
+
+		if err := bootstrap(cfg); err != nil {
+			return fmt.Errorf("bootstrap failed: %w", err)
+		}
+
+		fmt.Println("✅ Bootstrap complete!")
+		return nil
+	}
+
+	// Interactive mode - check if /dev/tty is accessible
+	// In non-interactive environments (tests, CI), /dev/tty won't be available
+	if _, err := os.Open("/dev/tty"); err != nil {
+		return fmt.Errorf("interactive mode requires a TTY. Use BOOTSTRAP_ACCOUNT and BOOTSTRAP_REPO environment variables for non-interactive usage")
 	}
 
 	form := huh.NewForm(
@@ -72,6 +104,10 @@ func run() error {
 		return fmt.Errorf("form error: %w", err)
 	}
 
+	// Trim whitespace from user input to prevent invalid paths/module names
+	cfg.accountName = strings.TrimSpace(cfg.accountName)
+	cfg.repoName = strings.TrimSpace(cfg.repoName)
+
 	fmt.Println("\n🚀 Bootstrapping project with the following configuration:")
 	fmt.Printf("  Account: %s\n", cfg.accountName)
 	fmt.Printf("  Repository: %s\n", cfg.repoName)
@@ -87,9 +123,19 @@ func run() error {
 }
 
 func bootstrap(cfg *config) error {
-	// Change to parent directory to operate on the template root
+	// Change to parent directory to operate on the template root.
+	// This affects all subsequent file operations in this process.
+	// The bootstrap tool is expected to run from bootstrap/ subdirectory.
 	if err := os.Chdir(".."); err != nil {
 		return fmt.Errorf("failed to change to parent directory: %w", err)
+	}
+
+	// Validate we're in the expected location by checking for marker files
+	if _, err := os.Stat("go.mod"); err != nil {
+		return fmt.Errorf("after changing directory, expected go.mod file not found - are you running from the bootstrap directory?")
+	}
+	if _, err := os.Stat(".git"); err != nil {
+		fmt.Fprintf(os.Stderr, "  Warning: .git directory not found, this might not be a git repository\n")
 	}
 
 	if !cfg.includeBinary {
@@ -136,8 +182,20 @@ func removeBinarySupport() error {
 	return removeJustfileBinaryRecipes()
 }
 
+// removeJustfileBinaryRecipes removes specific recipe sections from justfile.
+// A "section" consists of: comment line, recipe name line, indented body, and trailing empty line.
+// This parses justfile text format which uses indentation to denote recipe bodies.
+// WARNING: Section detection is tightly coupled to justfile comment format.
+// If justfile section comments change, update the detection patterns accordingly.
 func removeJustfileBinaryRecipes() error {
 	justfilePath := "justfile"
+
+	// Get original file permissions to preserve them
+	info, err := os.Stat(justfilePath)
+	if err != nil {
+		return fmt.Errorf("failed to stat justfile: %w", err)
+	}
+
 	content, err := os.ReadFile(justfilePath)
 	if err != nil {
 		return fmt.Errorf("failed to read justfile: %w", err)
@@ -150,7 +208,8 @@ func removeJustfileBinaryRecipes() error {
 	skipNextEmpty := false
 
 	for _, line := range lines {
-		// Detect section starts
+		// Detect section starts by matching exact comment patterns.
+		// These patterns are specific to the current justfile structure.
 		if strings.HasPrefix(line, "# Build ") && strings.HasSuffix(line, " binary") {
 			inBinarySection = true
 			continue
@@ -186,7 +245,8 @@ func removeJustfileBinaryRecipes() error {
 	}
 
 	newContent := strings.Join(newLines, "\n")
-	if err := os.WriteFile(justfilePath, []byte(newContent), 0o644); err != nil {
+	// Preserve original file permissions
+	if err := os.WriteFile(justfilePath, []byte(newContent), info.Mode().Perm()); err != nil {
 		return fmt.Errorf("failed to write justfile: %w", err)
 	}
 
@@ -212,12 +272,23 @@ func removeVersioningSupport() error {
 }
 
 func renameCmd(repoName string) error {
+	// oldPath is hardcoded to match the template's placeholder directory.
+	// This must be kept in sync with the template structure.
 	oldPath := "cmd/x-repo-name"
 	newPath := filepath.Join("cmd", repoName)
 
-	if _, err := os.Stat(oldPath); os.IsNotExist(err) {
-		// Already renamed or doesn't exist
-		return nil
+	_, err := os.Stat(oldPath)
+	if os.IsNotExist(err) {
+		// Check if new path already exists (already renamed in a previous run)
+		if _, err := os.Stat(newPath); err == nil {
+			fmt.Printf("  Directory %s already exists, skipping rename\n", newPath)
+			return nil
+		}
+		// Neither old nor new path exists - this might be an error in the template
+		return fmt.Errorf("expected directory %s does not exist", oldPath)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to check %s: %w", oldPath, err)
 	}
 
 	fmt.Printf("  Renaming %s to %s...\n", oldPath, newPath)
@@ -227,41 +298,50 @@ func renameCmd(repoName string) error {
 func replacePlaceholders(accountName, repoName string) error {
 	fmt.Println("  Replacing placeholders in files...")
 
-	// Use find to get all files, excluding .git directory and bootstrap
-	cmd := exec.Command("sh", "-c", "find . -type f -not -path './.git/*' -not -path './bootstrap/*'")
-	output, err := cmd.Output()
-	if err != nil {
-		return fmt.Errorf("failed to find files: %w", err)
-	}
-
-	files := strings.Split(strings.TrimSpace(string(output)), "\n")
-
-	for _, file := range files {
-		if file == "" {
-			continue
+	return filepath.WalkDir(".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
 		}
 
-		content, err := os.ReadFile(file)
+		// Skip .git and bootstrap directories
+		if d.IsDir() {
+			if path == ".git" || path == "bootstrap" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		// Get file info to preserve permissions
+		info, err := d.Info()
 		if err != nil {
-			continue // Skip files we can't read
+			fmt.Fprintf(os.Stderr, "  Warning: Could not stat %s: %v\n", path, err)
+			return nil
+		}
+
+		content, err := os.ReadFile(path)
+		if err != nil {
+			// Some files might be binary or have permission issues
+			fmt.Fprintf(os.Stderr, "  Warning: Could not read %s: %v\n", path, err)
+			return nil
 		}
 
 		// Check if file contains placeholders
 		strContent := string(content)
 		if !strings.Contains(strContent, "x-github-account-name") && !strings.Contains(strContent, "x-repo-name") {
-			continue
+			return nil
 		}
 
 		// Replace placeholders
 		strContent = strings.ReplaceAll(strContent, "x-github-account-name", accountName)
 		strContent = strings.ReplaceAll(strContent, "x-repo-name", repoName)
 
-		if err := os.WriteFile(file, []byte(strContent), 0o644); err != nil {
-			return fmt.Errorf("failed to write %s: %w", file, err)
+		// Preserve original file permissions
+		if err := os.WriteFile(path, []byte(strContent), info.Mode().Perm()); err != nil {
+			return fmt.Errorf("failed to write %s: %w", path, err)
 		}
-	}
 
-	return nil
+		return nil
+	})
 }
 
 func cleanupBootstrapFiles(repoName string) error {
@@ -290,8 +370,9 @@ func cleanupBootstrapFiles(repoName string) error {
 		}
 	}
 
-	// Create new README
+	// Create new README with standard non-executable file permissions
 	readme := fmt.Sprintf("# %s\n\nTODO\n", repoName)
+	//nolint:gosec // G306: 0o644 is intentional for non-executable text files
 	if err := os.WriteFile("README.md", []byte(readme), 0o644); err != nil {
 		return fmt.Errorf("failed to write README.md: %w", err)
 	}

@@ -19,6 +19,7 @@ categories:
       - chore
       - infrastructure
       - dependencies
+      - test
 change-template: "- $TITLE (#$NUMBER) @$AUTHOR"
 change-title-escapes: '\<*_&' # You can add # and @ to disable mentions, and add ` to disable code blocks.
 version-resolver:
@@ -28,6 +29,7 @@ version-resolver:
   minor:
     labels:
       - minor
+      - breaking-change
   patch:
     labels:
       - patch
@@ -52,9 +54,12 @@ autolabeler:
   - label: documentation
     title:
       - "/^doc:/i"
+  - label: test
+    title:
+      - "/^test:/i"
   - label: breaking-change
     body:
-      - '/^## Breaking Changes/im'
+      - "/^## Breaking Changes/im"
   # Version labels.
   - label: minor
     title:
@@ -64,8 +69,11 @@ autolabeler:
       - "/^fix:/i"
       - "/^sec:/i"
       - "/^chore:/i"
+      - "/^infra:/i"
+      - "/^doc:/i"
+      - "/^test:/i"
     branch:
-      - '/^renovate_/'
+      - "/^renovate_/"
 replacers:
   # Remove unlabeled or uncategorized PRs.
   - search: "/# What's Changed.*?\\n## /s"
