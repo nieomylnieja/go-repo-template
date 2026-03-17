@@ -15,10 +15,13 @@ go run -C bootstrap .
 ```
 
 The CLI will guide you through an interactive form to configure your new project:
+
 - **GitHub Account Name**: The GitHub account or organization that owns this repository
 - **Repository Name**: The name of your new repository
-- **Include Binary Support?**: Whether to include goreleaser configuration and binary build workflows
-- **Include Versioning Support?**: Whether to include release drafter and automated versioning workflows
+- **Include Binary Support?**:
+  Whether to include goreleaser configuration and binary build workflows
+- **Include Versioning Support?**:
+  Whether to include release drafter and automated versioning workflows
 
 ## Devbox
 
