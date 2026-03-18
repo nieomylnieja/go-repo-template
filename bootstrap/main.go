@@ -2,7 +2,9 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -26,43 +28,52 @@ func main() {
 }
 
 func run() error {
-	cfg := &config{
-		includeBinary:  true,
-		includeVersion: true,
+	cfg, err := loadConfig(os.Stdin, os.Stdout)
+	if err != nil {
+		return err
 	}
 
-	// Check for non-interactive mode via environment variables (for testing)
+	fmt.Println("\n🚀 Bootstrapping project with the following configuration:")
+	fmt.Printf("  Account: %s\n", cfg.accountName)
+	fmt.Printf("  Repository: %s\n", cfg.repoName)
+	fmt.Printf("  Binary support: %v\n", cfg.includeBinary)
+	fmt.Printf("  Versioning support: %v\n\n", cfg.includeVersion)
+
+	if err := bootstrap(cfg); err != nil {
+		return fmt.Errorf("bootstrap failed: %w", err)
+	}
+
+	fmt.Println("✅ Bootstrap complete!")
+	return nil
+}
+
+func loadConfig(in io.Reader, out io.Writer) (*config, error) {
 	if accountName := os.Getenv("BOOTSTRAP_ACCOUNT"); accountName != "" {
-		repoName := os.Getenv("BOOTSTRAP_REPO")
-		if repoName == "" {
-			return fmt.Errorf("BOOTSTRAP_REPO environment variable is required when BOOTSTRAP_ACCOUNT is set")
-		}
-
-		cfg.accountName = strings.TrimSpace(accountName)
-		cfg.repoName = strings.TrimSpace(repoName)
-		cfg.includeBinary = os.Getenv("BOOTSTRAP_NO_BINARY") != "true"
-		cfg.includeVersion = os.Getenv("BOOTSTRAP_NO_VERSIONING") != "true"
-
-		fmt.Println("\n🚀 Bootstrapping project with the following configuration:")
-		fmt.Printf("  Account: %s\n", cfg.accountName)
-		fmt.Printf("  Repository: %s\n", cfg.repoName)
-		fmt.Printf("  Binary support: %v\n", cfg.includeBinary)
-		fmt.Printf("  Versioning support: %v\n\n", cfg.includeVersion)
-
-		if err := bootstrap(cfg); err != nil {
-			return fmt.Errorf("bootstrap failed: %w", err)
-		}
-
-		fmt.Println("✅ Bootstrap complete!")
-		return nil
+		return loadConfigFromEnv(accountName)
 	}
-
-	// Interactive mode - check if /dev/tty is accessible
-	// In non-interactive environments (tests, CI), /dev/tty won't be available
-	if _, err := os.Open("/dev/tty"); err != nil {
-		return fmt.Errorf("interactive mode requires a TTY. Use BOOTSTRAP_ACCOUNT and BOOTSTRAP_REPO environment variables for non-interactive usage")
+	f, err := os.Open("/dev/tty")
+	if err != nil {
+		return nil, fmt.Errorf("interactive mode requires a TTY; set BOOTSTRAP_ACCOUNT and BOOTSTRAP_REPO")
 	}
+	_ = f.Close()
+	return loadConfigInteractive(in, out)
+}
 
+func loadConfigFromEnv(accountName string) (*config, error) {
+	repoName := os.Getenv("BOOTSTRAP_REPO")
+	if repoName == "" {
+		return nil, fmt.Errorf("BOOTSTRAP_REPO environment variable is required when BOOTSTRAP_ACCOUNT is set")
+	}
+	return &config{
+		accountName:    strings.TrimSpace(accountName),
+		repoName:       strings.TrimSpace(repoName),
+		includeBinary:  os.Getenv("BOOTSTRAP_NO_BINARY") != "true",
+		includeVersion: os.Getenv("BOOTSTRAP_NO_VERSIONING") != "true",
+	}, nil
+}
+
+func loadConfigInteractive(in io.Reader, out io.Writer) (*config, error) {
+	cfg := &config{}
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
@@ -75,7 +86,6 @@ func run() error {
 					}
 					return nil
 				}),
-
 			huh.NewInput().
 				Title("Repository Name").
 				Description("The name of your new repository").
@@ -92,34 +102,18 @@ func run() error {
 				Title("Include Binary Support?").
 				Description("Include goreleaser configuration and binary build workflows").
 				Value(&cfg.includeBinary),
-
 			huh.NewConfirm().
 				Title("Include Versioning Support?").
 				Description("Include release drafter and automated versioning workflows").
 				Value(&cfg.includeVersion),
 		),
-	)
-
+	).WithInput(in).WithOutput(out)
 	if err := form.Run(); err != nil {
-		return fmt.Errorf("form error: %w", err)
+		return nil, fmt.Errorf("form error: %w", err)
 	}
-
-	// Trim whitespace from user input to prevent invalid paths/module names
 	cfg.accountName = strings.TrimSpace(cfg.accountName)
 	cfg.repoName = strings.TrimSpace(cfg.repoName)
-
-	fmt.Println("\n🚀 Bootstrapping project with the following configuration:")
-	fmt.Printf("  Account: %s\n", cfg.accountName)
-	fmt.Printf("  Repository: %s\n", cfg.repoName)
-	fmt.Printf("  Binary support: %v\n", cfg.includeBinary)
-	fmt.Printf("  Versioning support: %v\n\n", cfg.includeVersion)
-
-	if err := bootstrap(cfg); err != nil {
-		return fmt.Errorf("bootstrap failed: %w", err)
-	}
-
-	fmt.Println("✅ Bootstrap complete!")
-	return nil
+	return cfg, nil
 }
 
 func bootstrap(cfg *config) error {
@@ -130,12 +124,16 @@ func bootstrap(cfg *config) error {
 		return fmt.Errorf("failed to change to parent directory: %w", err)
 	}
 
-	// Validate we're in the expected location by checking for marker files
 	if _, err := os.Stat("go.mod"); err != nil {
-		return fmt.Errorf("after changing directory, expected go.mod file not found - are you running from the bootstrap directory?")
+		cwd, _ := os.Getwd()
+		return fmt.Errorf("expected go.mod in %s: %w (are you running from the bootstrap directory?)", cwd, err)
 	}
 	if _, err := os.Stat(".git"); err != nil {
-		fmt.Fprintf(os.Stderr, "  Warning: .git directory not found, this might not be a git repository\n")
+		if errors.Is(err, fs.ErrNotExist) {
+			fmt.Fprintf(os.Stderr, "  Warning: .git directory not found, this might not be a git repository\n")
+		} else {
+			fmt.Fprintf(os.Stderr, "  Warning: could not check for .git directory: %v\n", err)
+		}
 	}
 
 	if !cfg.includeBinary {
@@ -174,7 +172,7 @@ func removeBinarySupport() error {
 	}
 
 	for _, file := range filesToRemove {
-		if err := os.Remove(file); err != nil && !os.IsNotExist(err) {
+		if err := os.Remove(file); err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return fmt.Errorf("failed to remove %s: %w", file, err)
 		}
 	}
@@ -182,15 +180,22 @@ func removeBinarySupport() error {
 	return removeJustfileBinaryRecipes()
 }
 
-// removeJustfileBinaryRecipes removes specific recipe sections from justfile.
-// A "section" consists of: comment line, recipe name line, indented body, and trailing empty line.
-// This parses justfile text format which uses indentation to denote recipe bodies.
-// WARNING: Section detection is tightly coupled to justfile comment format.
-// If justfile section comments change, update the detection patterns accordingly.
 func removeJustfileBinaryRecipes() error {
+	return removeJustfileRecipes(func(line string) bool {
+		return (strings.HasPrefix(line, "# Build ") && strings.HasSuffix(line, " binary")) ||
+			strings.HasPrefix(line, "# Build and release")
+	})
+}
+
+// removeJustfileRecipes removes recipe sections from the justfile whose comment header
+// matches isSectionHeader. Each section is: comment line, recipe name line, indented
+// body lines, and a trailing empty line.
+//
+// WARNING: Section detection is tightly coupled to the justfile comment format.
+// If justfile section comments change, update the callers accordingly.
+func removeJustfileRecipes(isSectionHeader func(string) bool) error {
 	justfilePath := "justfile"
 
-	// Get original file permissions to preserve them
 	info, err := os.Stat(justfilePath)
 	if err != nil {
 		return fmt.Errorf("failed to stat justfile: %w", err)
@@ -203,38 +208,26 @@ func removeJustfileBinaryRecipes() error {
 
 	lines := strings.Split(string(content), "\n")
 	var newLines []string
-	inBinarySection := false
-	inReleaseSection := false
+	inSection := false
 	skipNextEmpty := false
 
 	for _, line := range lines {
-		// Detect section starts by matching exact comment patterns.
-		// These patterns are specific to the current justfile structure.
-		if strings.HasPrefix(line, "# Build ") && strings.HasSuffix(line, " binary") {
-			inBinarySection = true
-			continue
-		}
-		if strings.HasPrefix(line, "# Build and release") {
-			inReleaseSection = true
+		if !inSection && isSectionHeader(line) {
+			inSection = true
 			continue
 		}
 
-		// If we're in a section and hit a recipe line (starts with non-space)
-		if (inBinarySection || inReleaseSection) && len(line) > 0 && line[0] != ' ' && line[0] != '\t' &&
-			line[0] != '#' {
+		if inSection && len(line) > 0 && line[0] != ' ' && line[0] != '\t' && line[0] != '#' {
 			skipNextEmpty = true
 			continue
 		}
 
-		// Skip lines that are part of the recipe body (indented)
-		if (inBinarySection || inReleaseSection) && len(line) > 0 && (line[0] == ' ' || line[0] == '\t') {
+		if inSection && len(line) > 0 && (line[0] == ' ' || line[0] == '\t') {
 			continue
 		}
 
-		// If we hit an empty line after a section, end the section
-		if (inBinarySection || inReleaseSection) && len(strings.TrimSpace(line)) == 0 {
-			inBinarySection = false
-			inReleaseSection = false
+		if inSection && len(strings.TrimSpace(line)) == 0 {
+			inSection = false
 			if skipNextEmpty {
 				skipNextEmpty = false
 				continue
@@ -245,7 +238,7 @@ func removeJustfileBinaryRecipes() error {
 	}
 
 	newContent := strings.Join(newLines, "\n")
-	// Preserve original file permissions
+	//nolint:gosec // G306: justfilePath is a fixed constant, not user input
 	if err := os.WriteFile(justfilePath, []byte(newContent), info.Mode().Perm()); err != nil {
 		return fmt.Errorf("failed to write justfile: %w", err)
 	}
@@ -263,7 +256,7 @@ func removeVersioningSupport() error {
 	}
 
 	for _, file := range filesToRemove {
-		if err := os.Remove(file); err != nil && !os.IsNotExist(err) {
+		if err := os.Remove(file); err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return fmt.Errorf("failed to remove %s: %w", file, err)
 		}
 	}
@@ -278,13 +271,11 @@ func renameCmd(repoName string) error {
 	newPath := filepath.Join("cmd", repoName)
 
 	_, err := os.Stat(oldPath)
-	if os.IsNotExist(err) {
-		// Check if new path already exists (already renamed in a previous run)
+	if errors.Is(err, fs.ErrNotExist) {
 		if _, err := os.Stat(newPath); err == nil {
 			fmt.Printf("  Directory %s already exists, skipping rename\n", newPath)
 			return nil
 		}
-		// Neither old nor new path exists - this might be an error in the template
 		return fmt.Errorf("expected directory %s does not exist", oldPath)
 	}
 	if err != nil {
@@ -292,7 +283,10 @@ func renameCmd(repoName string) error {
 	}
 
 	fmt.Printf("  Renaming %s to %s...\n", oldPath, newPath)
-	return os.Rename(oldPath, newPath)
+	if err := os.Rename(oldPath, newPath); err != nil {
+		return fmt.Errorf("rename %s to %s: %w", oldPath, newPath, err)
+	}
+	return nil
 }
 
 func replacePlaceholders(accountName, repoName string) error {
@@ -303,7 +297,6 @@ func replacePlaceholders(accountName, repoName string) error {
 			return err
 		}
 
-		// Skip .git and bootstrap directories
 		if d.IsDir() {
 			if path == ".git" || path == "bootstrap" {
 				return filepath.SkipDir
@@ -311,31 +304,31 @@ func replacePlaceholders(accountName, repoName string) error {
 			return nil
 		}
 
-		// Get file info to preserve permissions
+		// WalkDir does not follow symlinks; skip them as they cannot contain text placeholders.
+		if d.Type()&fs.ModeSymlink != 0 {
+			return nil
+		}
+
 		info, err := d.Info()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "  Warning: Could not stat %s: %v\n", path, err)
-			return nil
+			return fmt.Errorf("failed to stat %s: %w", path, err)
 		}
 
+		//nolint:gosec // G304: path comes from WalkDir over a known project root
 		content, err := os.ReadFile(path)
 		if err != nil {
-			// Some files might be binary or have permission issues
-			fmt.Fprintf(os.Stderr, "  Warning: Could not read %s: %v\n", path, err)
-			return nil
+			return fmt.Errorf("failed to read %s: %w", path, err)
 		}
 
-		// Check if file contains placeholders
 		strContent := string(content)
 		if !strings.Contains(strContent, "x-github-account-name") && !strings.Contains(strContent, "x-repo-name") {
 			return nil
 		}
 
-		// Replace placeholders
 		strContent = strings.ReplaceAll(strContent, "x-github-account-name", accountName)
 		strContent = strings.ReplaceAll(strContent, "x-repo-name", repoName)
 
-		// Preserve original file permissions
+		//nolint:gosec // G122: symlinks are already skipped above; path comes from WalkDir
 		if err := os.WriteFile(path, []byte(strContent), info.Mode().Perm()); err != nil {
 			return fmt.Errorf("failed to write %s: %w", path, err)
 		}
@@ -347,30 +340,32 @@ func replacePlaceholders(accountName, repoName string) error {
 func cleanupBootstrapFiles(repoName string) error {
 	fmt.Println("  Cleaning up bootstrap files...")
 
-	// Remove directories
 	dirsToRemove := []string{
 		"bootstrap",
 		"test",
 	}
-
 	for _, dir := range dirsToRemove {
-		if err := os.RemoveAll(dir); err != nil && !os.IsNotExist(err) {
+		if err := os.RemoveAll(dir); err != nil {
 			return fmt.Errorf("failed to remove %s: %w", dir, err)
 		}
 	}
 
-	// Remove files
 	filesToRemove := []string{
 		"gitsync.json",
 	}
-
 	for _, file := range filesToRemove {
-		if err := os.Remove(file); err != nil && !os.IsNotExist(err) {
+		if err := os.Remove(file); err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return fmt.Errorf("failed to remove %s: %w", file, err)
 		}
 	}
 
-	// Create new README with standard non-executable file permissions
+	if err := removeJustfileRecipes(func(line string) bool {
+		return line == "# Bootstrap the project from the template" ||
+			line == "# Run bootstrap tests"
+	}); err != nil {
+		return fmt.Errorf("failed to remove bootstrap recipes from justfile: %w", err)
+	}
+
 	readme := fmt.Sprintf("# %s\n\nTODO\n", repoName)
 	//nolint:gosec // G306: 0o644 is intentional for non-executable text files
 	if err := os.WriteFile("README.md", []byte(readme), 0o644); err != nil {

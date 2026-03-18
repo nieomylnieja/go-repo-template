@@ -25,6 +25,15 @@ update-devbox:
     @{{ print_step }} "Update packages managed by devbox"
     devbox update
 
+# Bootstrap the project from the template
+bootstrap:
+    cd bootstrap && go run .
+
+# Run bootstrap tests
+test-bootstrap:
+    @{{ print_step }} "Running bootstrap tests"
+    cd bootstrap && go test -race -cover ./...
+
 # Build x-repo-name binary
 build:
     @{{ print_step }} "Building binary"

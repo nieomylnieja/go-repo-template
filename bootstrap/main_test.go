@@ -8,9 +8,11 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/survivorbat/huhtest"
 )
 
 //go:embed testdata/expected-justfile-with-binary
@@ -218,6 +220,68 @@ func TestBootstrap_FlagAfterPositionalArgs(t *testing.T) {
 	assert.NoFileExists(t, filepath.Join(tmpDir, ".goreleaser.yml"))
 }
 
+func TestLoadConfigInteractive_BothEnabled(t *testing.T) {
+	stdin, stdout, cancel := huhtest.NewResponder().
+		AddResponse("GitHub Account Name", "my-account").
+		AddResponse("Repository Name", "my-repo").
+		AddConfirm("Include Binary Support", huhtest.ConfirmAffirm).
+		AddConfirm("Include Versioning Support", huhtest.ConfirmAffirm).
+		Start(t, 5*time.Second)
+	defer cancel()
+
+	cfg, err := loadConfigInteractive(stdin, stdout)
+	require.NoError(t, err)
+	assert.Equal(t, "my-account", cfg.accountName)
+	assert.Equal(t, "my-repo", cfg.repoName)
+	assert.True(t, cfg.includeBinary)
+	assert.True(t, cfg.includeVersion)
+}
+
+func TestLoadConfigInteractive_BinaryDisabled(t *testing.T) {
+	stdin, stdout, cancel := huhtest.NewResponder().
+		AddResponse("GitHub Account Name", "my-account").
+		AddResponse("Repository Name", "my-repo").
+		AddConfirm("Include Binary Support", huhtest.ConfirmNegative).
+		AddConfirm("Include Versioning Support", huhtest.ConfirmAffirm).
+		Start(t, 5*time.Second)
+	defer cancel()
+
+	cfg, err := loadConfigInteractive(stdin, stdout)
+	require.NoError(t, err)
+	assert.False(t, cfg.includeBinary)
+	assert.True(t, cfg.includeVersion)
+}
+
+func TestLoadConfigInteractive_VersioningDisabled(t *testing.T) {
+	stdin, stdout, cancel := huhtest.NewResponder().
+		AddResponse("GitHub Account Name", "my-account").
+		AddResponse("Repository Name", "my-repo").
+		AddConfirm("Include Binary Support", huhtest.ConfirmAffirm).
+		AddConfirm("Include Versioning Support", huhtest.ConfirmNegative).
+		Start(t, 5*time.Second)
+	defer cancel()
+
+	cfg, err := loadConfigInteractive(stdin, stdout)
+	require.NoError(t, err)
+	assert.True(t, cfg.includeBinary)
+	assert.False(t, cfg.includeVersion)
+}
+
+func TestLoadConfigInteractive_BothDisabled(t *testing.T) {
+	stdin, stdout, cancel := huhtest.NewResponder().
+		AddResponse("GitHub Account Name", "my-account").
+		AddResponse("Repository Name", "my-repo").
+		AddConfirm("Include Binary Support", huhtest.ConfirmNegative).
+		AddConfirm("Include Versioning Support", huhtest.ConfirmNegative).
+		Start(t, 5*time.Second)
+	defer cancel()
+
+	cfg, err := loadConfigInteractive(stdin, stdout)
+	require.NoError(t, err)
+	assert.False(t, cfg.includeBinary)
+	assert.False(t, cfg.includeVersion)
+}
+
 func getExpectedJustfile(t *testing.T, includeBinary bool) string {
 	t.Helper()
 
@@ -243,26 +307,17 @@ func runBootstrap(t *testing.T, tmpDir string, args ...string) (string, error) {
 	noBinary := "false"
 	noVersioning := "false"
 
-	for i, arg := range args {
+	for _, arg := range args {
 		switch arg {
 		case "--no-binary":
 			noBinary = "true"
 		case "--no-versioning":
 			noVersioning = "true"
 		default:
-			// Positional arguments: account name, then repo name
 			if accountName == "" {
 				accountName = arg
 			} else if repoName == "" {
 				repoName = arg
-			}
-		}
-		// Handle flags after positional args
-		if i > 0 && args[i-1] != "--no-binary" && args[i-1] != "--no-versioning" {
-			if arg == "--no-binary" {
-				noBinary = "true"
-			} else if arg == "--no-versioning" {
-				noVersioning = "true"
 			}
 		}
 	}
@@ -270,6 +325,7 @@ func runBootstrap(t *testing.T, tmpDir string, args ...string) (string, error) {
 	// Run the bootstrap binary from the bootstrap directory (like the old script)
 	// The tool expects to run from bootstrap/ and will cd .. to the project root
 	bootstrapBin := filepath.Join(bootstrapDir, "bootstrap-bin")
+	//nolint:gosec // G204: bootstrapBin is a test binary path, not user input
 	cmd := exec.Command(bootstrapBin)
 	cmd.Dir = bootstrapDir // Run from bootstrap/ directory
 
@@ -292,6 +348,7 @@ func runBootstrap(t *testing.T, tmpDir string, args ...string) (string, error) {
 
 func readFile(t *testing.T, path string) string {
 	t.Helper()
+	//nolint:gosec // G304: path is a test file path within t.TempDir()
 	content, err := os.ReadFile(path)
 	require.NoError(t, err, "Failed to read file %s", path)
 	return string(content)
