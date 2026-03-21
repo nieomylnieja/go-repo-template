@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -114,9 +113,8 @@ func TestBootstrap_NoBinaryFlag(t *testing.T) {
 	})
 	t.Run("still replaces placeholders", func(t *testing.T) {
 		goMod := readFile(t, filepath.Join(tmpDir, "go.mod"))
-		if strings.Contains(goMod, "x-github-account-name") || strings.Contains(goMod, "x-repo-name") {
-			t.Error("go.mod still contains placeholders")
-		}
+		assert.NotContains(t, goMod, "x-github-account-name")
+		assert.NotContains(t, goMod, "x-repo-name")
 	})
 	t.Run("output shows binary support disabled", func(t *testing.T) {
 		assert.Contains(t, output, "Binary support: false")
@@ -280,6 +278,110 @@ func TestLoadConfigInteractive_BothDisabled(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, cfg.includeBinary)
 	assert.False(t, cfg.includeVersion)
+}
+
+func TestLoadConfigInteractive_WhitespaceTrimmed(t *testing.T) {
+	stdin, stdout, cancel := huhtest.NewResponder().
+		AddResponse("GitHub Account Name", "  my-account  ").
+		AddResponse("Repository Name", "  my-repo  ").
+		AddConfirm("Include Binary Support", huhtest.ConfirmAffirm).
+		AddConfirm("Include Versioning Support", huhtest.ConfirmAffirm).
+		Start(t, 5*time.Second)
+	defer cancel()
+
+	cfg, err := loadConfigInteractive(stdin, stdout)
+	require.NoError(t, err)
+	assert.Equal(t, "my-account", cfg.accountName)
+	assert.Equal(t, "my-repo", cfg.repoName)
+}
+
+func TestLoadConfigFromEnv(t *testing.T) {
+	tests := []struct {
+		name           string
+		account        string
+		repo           string
+		noBinary       string
+		noVersioning   string
+		wantErr        bool
+		wantAccount    string
+		wantRepo       string
+		wantBinary     bool
+		wantVersioning bool
+	}{
+		{
+			name:    "missing BOOTSTRAP_REPO returns error",
+			account: "my-account",
+			repo:    "",
+			wantErr: true,
+		},
+		{
+			name:           "whitespace is trimmed from account and repo",
+			account:        "  my-account  ",
+			repo:           "  my-repo  ",
+			wantAccount:    "my-account",
+			wantRepo:       "my-repo",
+			wantBinary:     true,
+			wantVersioning: true,
+		},
+		{
+			name:           "BOOTSTRAP_NO_BINARY=true disables binary",
+			account:        "my-account",
+			repo:           "my-repo",
+			noBinary:       "true",
+			wantAccount:    "my-account",
+			wantRepo:       "my-repo",
+			wantBinary:     false,
+			wantVersioning: true,
+		},
+		{
+			name:           "BOOTSTRAP_NO_BINARY not set enables binary",
+			account:        "my-account",
+			repo:           "my-repo",
+			wantAccount:    "my-account",
+			wantRepo:       "my-repo",
+			wantBinary:     true,
+			wantVersioning: true,
+		},
+		{
+			name:           "BOOTSTRAP_NO_VERSIONING=true disables versioning",
+			account:        "my-account",
+			repo:           "my-repo",
+			noVersioning:   "true",
+			wantAccount:    "my-account",
+			wantRepo:       "my-repo",
+			wantBinary:     true,
+			wantVersioning: false,
+		},
+		{
+			name:           "BOOTSTRAP_NO_VERSIONING not set enables versioning",
+			account:        "my-account",
+			repo:           "my-repo",
+			wantAccount:    "my-account",
+			wantRepo:       "my-repo",
+			wantBinary:     true,
+			wantVersioning: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("BOOTSTRAP_ACCOUNT", tt.account)
+			t.Setenv("BOOTSTRAP_REPO", tt.repo)
+			t.Setenv("BOOTSTRAP_NO_BINARY", tt.noBinary)
+			t.Setenv("BOOTSTRAP_NO_VERSIONING", tt.noVersioning)
+
+			cfg, err := loadConfigFromEnv(tt.account)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantAccount, cfg.accountName)
+			assert.Equal(t, tt.wantRepo, cfg.repoName)
+			assert.Equal(t, tt.wantBinary, cfg.includeBinary)
+			assert.Equal(t, tt.wantVersioning, cfg.includeVersion)
+		})
+	}
 }
 
 func getExpectedJustfile(t *testing.T, includeBinary bool) string {

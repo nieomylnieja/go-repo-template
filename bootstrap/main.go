@@ -53,9 +53,9 @@ func loadConfig(in io.Reader, out io.Writer) (*config, error) {
 	}
 	f, err := os.Open("/dev/tty")
 	if err != nil {
-		return nil, fmt.Errorf("interactive mode requires a TTY; set BOOTSTRAP_ACCOUNT and BOOTSTRAP_REPO")
+		return nil, fmt.Errorf("interactive mode requires a TTY; set BOOTSTRAP_ACCOUNT and BOOTSTRAP_REPO: %w", err)
 	}
-	_ = f.Close()
+	_ = f.Close() // probe only, never written to; close error is not actionable
 	return loadConfigInteractive(in, out)
 }
 
@@ -125,7 +125,10 @@ func bootstrap(cfg *config) error {
 	}
 
 	if _, err := os.Stat("go.mod"); err != nil {
-		cwd, _ := os.Getwd()
+		cwd, cwdErr := os.Getwd()
+		if cwdErr != nil {
+			cwd = fmt.Sprintf("<unknown: %v>", cwdErr)
+		}
 		return fmt.Errorf("expected go.mod in %s: %w (are you running from the bootstrap directory?)", cwd, err)
 	}
 	if _, err := os.Stat(".git"); err != nil {
@@ -214,6 +217,7 @@ func removeJustfileRecipes(isSectionHeader func(string) bool) error {
 	for _, line := range lines {
 		if !inSection && isSectionHeader(line) {
 			inSection = true
+			skipNextEmpty = false
 			continue
 		}
 
@@ -294,7 +298,7 @@ func replacePlaceholders(accountName, repoName string) error {
 
 	return filepath.WalkDir(".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return err
+			return fmt.Errorf("walking %s: %w", path, err)
 		}
 
 		if d.IsDir() {
@@ -328,7 +332,7 @@ func replacePlaceholders(accountName, repoName string) error {
 		strContent = strings.ReplaceAll(strContent, "x-github-account-name", accountName)
 		strContent = strings.ReplaceAll(strContent, "x-repo-name", repoName)
 
-		//nolint:gosec // G122: symlinks are already skipped above; path comes from WalkDir
+		//nolint:gosec // G306: symlinks are already skipped above; path comes from WalkDir
 		if err := os.WriteFile(path, []byte(strContent), info.Mode().Perm()); err != nil {
 			return fmt.Errorf("failed to write %s: %w", path, err)
 		}

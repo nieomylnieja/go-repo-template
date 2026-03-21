@@ -11,7 +11,7 @@ Click `Use this template` button and voila!
 After you're done, run the interactive bootstrap CLI:
 
 ```shell
-go run -C bootstrap .
+just bootstrap
 ```
 
 The CLI will guide you through an interactive form to configure your new project:
