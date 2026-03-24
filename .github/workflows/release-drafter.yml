@@ -13,25 +13,30 @@ permissions:
   contents: read
 
 jobs:
-  update_release_draft:
+  autolabeler:
+    if: github.event_name == 'pull_request'
     permissions:
-      # write permission is required to create a github release
-      contents: write
-      # write permission is required for autolabeler
-      # otherwise, read permission is required at least
       pull-requests: write
     runs-on: ubuntu-latest
-    env:
-      GITHUB_TOKEN: ${{ secrets.RELEASE_DRAFTER_TOKEN }}
+    steps:
+      - uses: release-drafter/release-drafter/autolabeler@v7
+        with:
+          token: ${{ secrets.RELEASE_DRAFTER_TOKEN }}
+
+  update_release_draft:
+    if: github.event_name == 'push'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
         with:
           ref: main
           fetch-depth: 0
-      # Drafts your next Release notes as Pull Requests are merged into "main"
       - id: drafter
         uses: release-drafter/release-drafter@v7
+        with:
+          token: ${{ secrets.RELEASE_DRAFTER_TOKEN }}
       - name: Add release notes to the draft
-        if: github.event_name == 'push'
         run: .github/scripts/release-notes.bash ${{ steps.drafter.outputs.tag_name }}
