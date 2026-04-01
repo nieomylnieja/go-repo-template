@@ -84,7 +84,7 @@ check-markdown:
 # Check for potential vulnerabilities across all Go dependencies
 check-vulnerabilities:
     @{{ print_step }} "Running govulncheck"
-    govulncheck ./...
+    go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
 # Verify if the auto generated code has been committed
 check-generate:
