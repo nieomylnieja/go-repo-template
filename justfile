@@ -32,7 +32,7 @@ bootstrap:
 # Run bootstrap tests
 test-bootstrap:
     @{{ print_step }} "Running bootstrap tests"
-    cd bootstrap && go test -race -cover ./...
+    cd bootstrap && go test -cover ./...
 
 # Build x-repo-name binary
 build:

@@ -62,11 +62,19 @@ func loadConfig(in io.Reader, out io.Writer) (*config, error) {
 func loadConfigFromEnv(accountName string) (*config, error) {
 	repoName := os.Getenv("BOOTSTRAP_REPO")
 	if repoName == "" {
-		return nil, fmt.Errorf("BOOTSTRAP_REPO environment variable is required when BOOTSTRAP_ACCOUNT is set")
+		return nil, errors.New("BOOTSTRAP_REPO environment variable is required when BOOTSTRAP_ACCOUNT is set")
+	}
+	accountName = strings.TrimSpace(accountName)
+	repoName = strings.TrimSpace(repoName)
+	if err := validateName(accountName, "BOOTSTRAP_ACCOUNT"); err != nil {
+		return nil, err
+	}
+	if err := validateName(repoName, "BOOTSTRAP_REPO"); err != nil {
+		return nil, err
 	}
 	return &config{
-		accountName:    strings.TrimSpace(accountName),
-		repoName:       strings.TrimSpace(repoName),
+		accountName:    accountName,
+		repoName:       repoName,
 		includeBinary:  os.Getenv("BOOTSTRAP_NO_BINARY") != "true",
 		includeVersion: os.Getenv("BOOTSTRAP_NO_VERSIONING") != "true",
 	}, nil
@@ -81,20 +89,14 @@ func loadConfigInteractive(in io.Reader, out io.Writer) (*config, error) {
 				Description("The GitHub account or organization that owns this repository").
 				Value(&cfg.accountName).
 				Validate(func(s string) error {
-					if strings.TrimSpace(s) == "" {
-						return fmt.Errorf("account name cannot be empty")
-					}
-					return nil
+					return validateName(strings.TrimSpace(s), "account name")
 				}),
 			huh.NewInput().
 				Title("Repository Name").
 				Description("The name of your new repository").
 				Value(&cfg.repoName).
 				Validate(func(s string) error {
-					if strings.TrimSpace(s) == "" {
-						return fmt.Errorf("repository name cannot be empty")
-					}
-					return nil
+					return validateName(strings.TrimSpace(s), "repository name")
 				}),
 		),
 		huh.NewGroup(
@@ -116,10 +118,18 @@ func loadConfigInteractive(in io.Reader, out io.Writer) (*config, error) {
 	return cfg, nil
 }
 
+func validateName(name, field string) error {
+	if name == "" {
+		return fmt.Errorf("%s cannot be empty", field)
+	}
+	if strings.ContainsAny(name, "/\\") || strings.Contains(name, "..") {
+		return fmt.Errorf("%s contains invalid characters", field)
+	}
+	return nil
+}
+
 func bootstrap(cfg *config) error {
-	// Change to parent directory to operate on the template root.
-	// This affects all subsequent file operations in this process.
-	// The bootstrap tool is expected to run from bootstrap/ subdirectory.
+	// The bootstrap tool runs from bootstrap/; chdir to the project root.
 	if err := os.Chdir(".."); err != nil {
 		return fmt.Errorf("failed to change to parent directory: %w", err)
 	}
@@ -241,8 +251,12 @@ func removeJustfileRecipes(isSectionHeader func(string) bool) error {
 		newLines = append(newLines, line)
 	}
 
+	if inSection {
+		return fmt.Errorf("justfile section was never closed (no trailing blank line)")
+	}
+
 	newContent := strings.Join(newLines, "\n")
-	//nolint:gosec // G306: justfilePath is a fixed constant, not user input
+	//nolint:gosec // G306: preserving original file permissions is intentional
 	if err := os.WriteFile(justfilePath, []byte(newContent), info.Mode().Perm()); err != nil {
 		return fmt.Errorf("failed to write justfile: %w", err)
 	}
@@ -276,9 +290,11 @@ func renameCmd(repoName string) error {
 
 	_, err := os.Stat(oldPath)
 	if errors.Is(err, fs.ErrNotExist) {
-		if _, err := os.Stat(newPath); err == nil {
+		if _, newErr := os.Stat(newPath); newErr == nil {
 			fmt.Printf("  Directory %s already exists, skipping rename\n", newPath)
 			return nil
+		} else if !errors.Is(newErr, fs.ErrNotExist) {
+			return fmt.Errorf("failed to check %s: %w", newPath, newErr)
 		}
 		return fmt.Errorf("expected directory %s does not exist", oldPath)
 	}
@@ -308,7 +324,7 @@ func replacePlaceholders(accountName, repoName string) error {
 			return nil
 		}
 
-		// WalkDir does not follow symlinks; skip them as they cannot contain text placeholders.
+		// WalkDir does not follow symlinks; skip them to avoid modifying files outside the project tree.
 		if d.Type()&fs.ModeSymlink != 0 {
 			return nil
 		}
@@ -332,7 +348,7 @@ func replacePlaceholders(accountName, repoName string) error {
 		strContent = strings.ReplaceAll(strContent, "x-github-account-name", accountName)
 		strContent = strings.ReplaceAll(strContent, "x-repo-name", repoName)
 
-		//nolint:gosec // G306: symlinks are already skipped above; path comes from WalkDir
+		//nolint:gosec // G306: preserving original file permissions; symlinks already skipped above
 		if err := os.WriteFile(path, []byte(strContent), info.Mode().Perm()); err != nil {
 			return fmt.Errorf("failed to write %s: %w", path, err)
 		}

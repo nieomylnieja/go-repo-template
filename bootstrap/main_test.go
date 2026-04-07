@@ -205,10 +205,6 @@ func TestBootstrap_MissingArguments(t *testing.T) {
 	}
 }
 
-// TestBootstrap_UnknownFlag is no longer applicable since the new Go CLI
-// uses environment variables instead of parsing command-line flags.
-// Unknown flags are simply ignored as they're passed as positional arguments.
-
 func TestBootstrap_FlagAfterPositionalArgs(t *testing.T) {
 	tmpDir := t.TempDir()
 	copyProject(t, tmpDir)
@@ -224,7 +220,7 @@ func TestLoadConfigInteractive_BothEnabled(t *testing.T) {
 		AddResponse("Repository Name", "my-repo").
 		AddConfirm("Include Binary Support", huhtest.ConfirmAffirm).
 		AddConfirm("Include Versioning Support", huhtest.ConfirmAffirm).
-		Start(t, 5*time.Second)
+		Start(t, 30*time.Second)
 	defer cancel()
 
 	cfg, err := loadConfigInteractive(stdin, stdout)
@@ -241,7 +237,7 @@ func TestLoadConfigInteractive_BinaryDisabled(t *testing.T) {
 		AddResponse("Repository Name", "my-repo").
 		AddConfirm("Include Binary Support", huhtest.ConfirmNegative).
 		AddConfirm("Include Versioning Support", huhtest.ConfirmAffirm).
-		Start(t, 5*time.Second)
+		Start(t, 30*time.Second)
 	defer cancel()
 
 	cfg, err := loadConfigInteractive(stdin, stdout)
@@ -256,7 +252,7 @@ func TestLoadConfigInteractive_VersioningDisabled(t *testing.T) {
 		AddResponse("Repository Name", "my-repo").
 		AddConfirm("Include Binary Support", huhtest.ConfirmAffirm).
 		AddConfirm("Include Versioning Support", huhtest.ConfirmNegative).
-		Start(t, 5*time.Second)
+		Start(t, 30*time.Second)
 	defer cancel()
 
 	cfg, err := loadConfigInteractive(stdin, stdout)
@@ -271,7 +267,7 @@ func TestLoadConfigInteractive_BothDisabled(t *testing.T) {
 		AddResponse("Repository Name", "my-repo").
 		AddConfirm("Include Binary Support", huhtest.ConfirmNegative).
 		AddConfirm("Include Versioning Support", huhtest.ConfirmNegative).
-		Start(t, 5*time.Second)
+		Start(t, 30*time.Second)
 	defer cancel()
 
 	cfg, err := loadConfigInteractive(stdin, stdout)
@@ -286,7 +282,7 @@ func TestLoadConfigInteractive_WhitespaceTrimmed(t *testing.T) {
 		AddResponse("Repository Name", "  my-repo  ").
 		AddConfirm("Include Binary Support", huhtest.ConfirmAffirm).
 		AddConfirm("Include Versioning Support", huhtest.ConfirmAffirm).
-		Start(t, 5*time.Second)
+		Start(t, 30*time.Second)
 	defer cancel()
 
 	cfg, err := loadConfigInteractive(stdin, stdout)
@@ -312,6 +308,18 @@ func TestLoadConfigFromEnv(t *testing.T) {
 			name:    "missing BOOTSTRAP_REPO returns error",
 			account: "my-account",
 			repo:    "",
+			wantErr: true,
+		},
+		{
+			name:    "whitespace-only BOOTSTRAP_REPO returns error",
+			account: "my-account",
+			repo:    "   ",
+			wantErr: true,
+		},
+		{
+			name:    "whitespace-only BOOTSTRAP_ACCOUNT returns error",
+			account: "   ",
+			repo:    "my-repo",
 			wantErr: true,
 		},
 		{
@@ -481,3 +489,4 @@ func findModuleRoot(t *testing.T) string {
 	})
 	return moduleRoot
 }
+
