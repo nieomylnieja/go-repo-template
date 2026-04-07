@@ -4,7 +4,6 @@ bin_dir := "./bin"
 scripts_dir := "./scripts"
 app_name := "x-repo-name"
 ldflags := "-s -w"
-
 print_step := 'printf -- "------\n%s...\n"'
 
 # Print this help message
@@ -25,6 +24,15 @@ install-devbox:
 update-devbox:
     @{{ print_step }} "Update packages managed by devbox"
     devbox update
+
+# Bootstrap the project from the template
+bootstrap:
+    cd bootstrap && go run .
+
+# Run bootstrap tests
+test-bootstrap:
+    @{{ print_step }} "Running bootstrap tests"
+    cd bootstrap && go test -cover ./...
 
 # Build x-repo-name binary
 build:

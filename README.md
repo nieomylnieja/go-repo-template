@@ -8,28 +8,20 @@ for creating new Go projects!
 Click `Use this template` button and voila!
 ![2024-10-05_22-53](https://github.com/user-attachments/assets/ae397fc7-5fa5-49df-94c1-314572a223d8)
 
-After you're done, you can run the following command to bootstrap the project:
+After you're done, run the interactive bootstrap CLI:
 
 ```shell
-./bootstrap/init.bash <github-account-name> <repo-name>
+just bootstrap
 ```
 
-If you don't intend to ship a binary with your project,
-add the following flag:
+The CLI will guide you through an interactive form to configure your new project:
 
-```shell
-./bootstrap/init.bash --no-binary <github-account-name> <repo-name>
-```
-
-If you don't want auto release notes and versioning support,
-add the following flag:
-
-```shell
-./bootstrap/init.bash --no-versioning <github-account-name> <repo-name>
-```
-
-The script always expects two positional arguments in the specified order and
-a combination of the supported flags (or none).
+- **GitHub Account Name**: The GitHub account or organization that owns this repository
+- **Repository Name**: The name of your new repository
+- **Include Binary Support?**:
+  Whether to include goreleaser configuration and binary build workflows
+- **Include Versioning Support?**:
+  Whether to include release drafter and automated versioning workflows
 
 ## Devbox
 
