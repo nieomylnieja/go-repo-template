@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/refs/heads/main/.schema/devbox.schema.json",
   "packages": [
-    "gotools@0.34.0",
+    "gotools@0.44.0",
     "just@1.49.0",
     "go@1.26.1",
     "markdownlint-cli@0.48.0",
