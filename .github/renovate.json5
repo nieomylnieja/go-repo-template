@@ -5,6 +5,7 @@
     ":enableVulnerabilityAlertsWithLabel(security)", // https://docs.renovatebot.com/presets-default/#enablevulnerabilityalertswithlabelarg0
     "group:recommended", // https://docs.renovatebot.com/presets-group/#grouprecommended
     "workarounds:all", // https://docs.renovatebot.com/presets-workarounds/#workaroundsall
+    ":preserveSemverRanges", // https://docs.renovatebot.com/presets-default/#preservesemverranges
   ],
   "reviewersFromCodeOwners": true,
   "dependencyDashboard": true,
