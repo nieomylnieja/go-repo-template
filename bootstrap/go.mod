@@ -1,6 +1,6 @@
 module github.com/nieomylnieja/go-repo-template/bootstrap
 
-go 1.26
+go 1.26.4
 
 require (
 	github.com/charmbracelet/huh v0.8.0

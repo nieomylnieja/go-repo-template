@@ -1,3 +1,3 @@
 module github.com/x-github-account-name/x-repo-name
 
-go 1.26
+go 1.26.4
