@@ -19,9 +19,12 @@ The CLI will guide you through an interactive form to configure your new project
 - **GitHub Account Name**: The GitHub account or organization that owns this repository
 - **Repository Name**: The name of your new repository
 - **Include Binary Support?**:
-  Whether to include goreleaser configuration and binary build workflows
+  Whether to include GoReleaser configuration and binary build workflows
 - **Include Versioning Support?**:
   Whether to include release drafter and automated versioning workflows
+- **Set GitHub Release Secrets?**:
+  Optionally store a supplied personal access token as the required GitHub
+  Actions release secrets with the GitHub CLI.
 
 ## Devbox
 
@@ -77,17 +80,32 @@ if the paths you're interested in are covered with `just test-coverage`.
 ## Releasing binaries
 
 If you decide to ship binaries with the project,
-[Goreleaser](https://goreleaser.com/) will require setting up
+[GoReleaser](https://goreleaser.com/) will require setting up
 `GORELEASER_TOKEN` secret.
-Refer to [goreleaser-action](https://github.com/goreleaser/goreleaser-action)
-docs for up-to-date permission requirements for the token.
+Use a dedicated fine-grained personal access token scoped to the generated
+repository with `Contents: read and write`.
+`Metadata: read-only` is included automatically.
 
 ## Release Drafter
 
-If you decide to keep release automation, you will need to setup
+If you decide to keep release automation, you will need to set up
 `RELEASE_DRAFTER_TOKEN` secret.
-Refer to [release-drafter](https://github.com/release-drafter/release-drafter?tab=readme-ov-file#usage)
-docs for up-to-date permission requirements for the token.
+Use a dedicated fine-grained personal access token scoped to the generated
+repository with `Contents: read and write` and
+`Pull requests: read and write`.
+`Metadata: read-only` is included automatically.
+
+## GitHub release secrets
+
+The bootstrap CLI does not create personal access tokens.
+For the least-privilege setup, create separate tokens for GoReleaser and
+Release Drafter with the permissions listed above.
+Store them with [GitHub CLI](https://cli.github.com/):
+
+```shell
+gh secret set GORELEASER_TOKEN --repo <github-account-name>/<repo-name>
+gh secret set RELEASE_DRAFTER_TOKEN --repo <github-account-name>/<repo-name>
+```
 
 ## Labels
 

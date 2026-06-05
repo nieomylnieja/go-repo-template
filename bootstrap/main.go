@@ -7,10 +7,21 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/huh"
+)
+
+const (
+	goreleaserSecretName     = "GORELEASER_TOKEN"
+	releaseDrafterSecretName = "RELEASE_DRAFTER_TOKEN"
+)
+
+var (
+	findExecutable   = exec.LookPath
+	runGitHubCommand = runExternalCommand
 )
 
 type config struct {
@@ -18,6 +29,8 @@ type config struct {
 	repoName       string
 	includeBinary  bool
 	includeVersion bool
+	setupSecrets   bool
+	releaseToken   string
 }
 
 func main() {
@@ -37,7 +50,14 @@ func run() error {
 	fmt.Printf("  Account: %s\n", cfg.accountName)
 	fmt.Printf("  Repository: %s\n", cfg.repoName)
 	fmt.Printf("  Binary support: %v\n", cfg.includeBinary)
-	fmt.Printf("  Versioning support: %v\n\n", cfg.includeVersion)
+	fmt.Printf("  Versioning support: %v\n", cfg.includeVersion)
+	fmt.Printf("  Secret setup: %v\n\n", cfg.setupSecrets)
+
+	if cfg.setupSecrets {
+		if err := setupReleaseSecrets(cfg); err != nil {
+			return fmt.Errorf("failed to setup release secrets: %w", err)
+		}
+	}
 
 	if err := bootstrap(cfg); err != nil {
 		return fmt.Errorf("bootstrap failed: %w", err)
@@ -72,11 +92,18 @@ func loadConfigFromEnv(accountName string) (*config, error) {
 	if err := validateName(repoName, "BOOTSTRAP_REPO"); err != nil {
 		return nil, err
 	}
+	setupSecrets := os.Getenv("BOOTSTRAP_SETUP_SECRETS") == "true"
+	releaseToken := strings.TrimSpace(os.Getenv("BOOTSTRAP_RELEASE_TOKEN"))
+	if setupSecrets && releaseToken == "" {
+		return nil, errors.New("BOOTSTRAP_RELEASE_TOKEN environment variable is required when BOOTSTRAP_SETUP_SECRETS=true")
+	}
 	return &config{
 		accountName:    accountName,
 		repoName:       repoName,
 		includeBinary:  os.Getenv("BOOTSTRAP_NO_BINARY") != "true",
 		includeVersion: os.Getenv("BOOTSTRAP_NO_VERSIONING") != "true",
+		setupSecrets:   setupSecrets,
+		releaseToken:   releaseToken,
 	}, nil
 }
 
@@ -105,10 +132,31 @@ func loadConfigInteractive(in io.Reader, out io.Writer) (*config, error) {
 		Title("Include Versioning Support?").
 		Description("Include release drafter and automated versioning workflows").
 		Value(&cfg.includeVersion)
+	setupSecretsConfirm := huh.NewConfirm().
+		Title("Set GitHub Release Secrets?").
+		Description("Store the supplied release token as the required GitHub Actions secrets").
+		Value(&cfg.setupSecrets)
+	tokenInput := huh.NewInput().
+		Title("GitHub Release Token").
+		Description("Personal access token for release automation; input is hidden").
+		EchoMode(huh.EchoModePassword).
+		Value(&cfg.releaseToken).
+		Validate(func(s string) error {
+			if strings.TrimSpace(s) == "" {
+				return errors.New("GitHub release token cannot be empty")
+			}
+			return nil
+		})
 
 	form := huh.NewForm(
 		huh.NewGroup(accountInput, repoInput),
 		huh.NewGroup(binaryConfirm, versionConfirm),
+		huh.NewGroup(setupSecretsConfirm).WithHideFunc(func() bool {
+			return !cfg.includeBinary && !cfg.includeVersion
+		}),
+		huh.NewGroup(tokenInput).WithHideFunc(func() bool {
+			return !cfg.setupSecrets
+		}),
 	).
 		WithInput(in).
 		WithOutput(out).
@@ -118,6 +166,10 @@ func loadConfigInteractive(in io.Reader, out io.Writer) (*config, error) {
 	}
 	cfg.accountName = strings.TrimSpace(cfg.accountName)
 	cfg.repoName = strings.TrimSpace(cfg.repoName)
+	if cfg.setupSecrets {
+		cfg.releaseToken = strings.TrimSpace(cfg.releaseToken)
+	}
+
 	return cfg, nil
 }
 
@@ -177,6 +229,48 @@ func bootstrap(cfg *config) error {
 	}
 
 	return nil
+}
+
+func setupReleaseSecrets(cfg *config) error {
+	repo := cfg.accountName + "/" + cfg.repoName
+	if _, err := findExecutable("gh"); err != nil {
+		return fmt.Errorf("GitHub CLI (gh) is required to set release secrets: %w", err)
+	}
+	if output, err := runGitHubCommand("", "gh", "auth", "status"); err != nil {
+		detail := strings.TrimSpace(string(output))
+		if detail != "" {
+			return fmt.Errorf("gh auth status failed: %w: %s", err, detail)
+		}
+		return fmt.Errorf("gh auth status failed: %w", err)
+	}
+
+	if cfg.includeBinary {
+		if err := setGitHubSecret(repo, goreleaserSecretName, cfg.releaseToken); err != nil {
+			return err
+		}
+	}
+	if cfg.includeVersion {
+		if err := setGitHubSecret(repo, releaseDrafterSecretName, cfg.releaseToken); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func setGitHubSecret(repo, secretName, token string) error {
+	if _, err := runGitHubCommand(token, "gh", "secret", "set", secretName, "--repo", repo); err != nil {
+		return fmt.Errorf("gh secret set failed for %s in %s: %w", secretName, repo, err)
+	}
+	fmt.Printf("  Set %s for %s\n", secretName, repo)
+	return nil
+}
+
+func runExternalCommand(stdin string, name string, args ...string) ([]byte, error) {
+	cmd := exec.Command(name, args...)
+	if stdin != "" {
+		cmd.Stdin = strings.NewReader(stdin)
+	}
+	return cmd.CombinedOutput()
 }
 
 func removeBinarySupport() error {
