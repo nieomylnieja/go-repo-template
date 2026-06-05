@@ -332,6 +332,7 @@ func removeVersioningSupport() error {
 	filesToRemove := []string{
 		".github/scripts/release-notes.bash",
 		".github/release-drafter.yml",
+		".github/workflows/pr-autolabeler.yml",
 		".github/workflows/release-drafter.yml",
 	}
 
