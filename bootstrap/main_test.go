@@ -250,6 +250,8 @@ func TestLoadConfigInteractive_BothDisabled(t *testing.T) {
 }
 
 func TestLoadConfigInteractive_WhitespaceTrimmed(t *testing.T) {
+	disableRepositoryDetection(t)
+
 	stdin, stdout, cancel := huhtest.NewResponder().
 		AddResponse("GitHub Account Name", "  my-account  ").
 		AddResponse("Repository Name", "  my-repo  ").
@@ -266,6 +268,8 @@ func TestLoadConfigInteractive_WhitespaceTrimmed(t *testing.T) {
 }
 
 func TestLoadConfigInteractive_SetupSecrets(t *testing.T) {
+	disableRepositoryDetection(t)
+
 	stdin, stdout, cancel := huhtest.NewResponder().
 		AddResponse("GitHub Account Name", "my-account").
 		AddResponse("Repository Name", "my-repo").
@@ -418,6 +422,115 @@ func TestLoadConfigFromEnv(t *testing.T) {
 	}
 }
 
+func TestDetectRepositoryIdentity(t *testing.T) {
+	tests := map[string]struct {
+		gitOutput          string
+		gitErr             error
+		ghOutput           string
+		ghErr              error
+		wantAccount        string
+		wantRepo           string
+		wantGitCommands    [][]string
+		wantGitHubCommands [][]string
+	}{
+		"git remote": {
+			gitOutput:       "https://github.com/my-account/my-repo.git\n",
+			wantAccount:     "my-account",
+			wantRepo:        "my-repo",
+			wantGitCommands: [][]string{{"git", "remote", "get-url", "origin"}},
+		},
+		"gh fallback": {
+			gitErr:             errors.New("exit status 2"),
+			ghOutput:           "my-account/my-repo\n",
+			wantAccount:        "my-account",
+			wantRepo:           "my-repo",
+			wantGitCommands:    [][]string{{"git", "remote", "get-url", "origin"}},
+			wantGitHubCommands: [][]string{{"gh", "repo", "view", "--json", "owner,name", "--jq", ".owner.login + \"/\" + .name"}},
+		},
+		"no repository detected": {
+			gitErr:             errors.New("exit status 2"),
+			ghErr:              errors.New("exit status 1"),
+			wantGitCommands:    [][]string{{"git", "remote", "get-url", "origin"}},
+			wantGitHubCommands: [][]string{{"gh", "repo", "view", "--json", "owner,name", "--jq", ".owner.login + \"/\" + .name"}},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			var gitCommands [][]string
+			var gitHubCommands [][]string
+			restoreCommandHooks(t)
+			runGitCommand = func(stdin string, name string, args ...string) ([]byte, error) {
+				assert.Empty(t, stdin)
+				command := append([]string{name}, args...)
+				gitCommands = append(gitCommands, command)
+				return []byte(tt.gitOutput), tt.gitErr
+			}
+			runGitHubCommand = func(stdin string, name string, args ...string) ([]byte, error) {
+				assert.Empty(t, stdin)
+				command := append([]string{name}, args...)
+				gitHubCommands = append(gitHubCommands, command)
+				return []byte(tt.ghOutput), tt.ghErr
+			}
+
+			accountName, repoName := detectRepositoryIdentity()
+
+			assert.Equal(t, tt.wantAccount, accountName)
+			assert.Equal(t, tt.wantRepo, repoName)
+			assert.Equal(t, tt.wantGitCommands, gitCommands)
+			assert.Equal(t, tt.wantGitHubCommands, gitHubCommands)
+		})
+	}
+}
+
+func TestParseGitHubRepository(t *testing.T) {
+	tests := map[string]struct {
+		remoteURL   string
+		wantAccount string
+		wantRepo    string
+	}{
+		"https remote": {
+			remoteURL:   "https://github.com/my-account/my-repo.git",
+			wantAccount: "my-account",
+			wantRepo:    "my-repo",
+		},
+		"http remote": {
+			remoteURL:   "http://github.com/my-account/my-repo.git",
+			wantAccount: "my-account",
+			wantRepo:    "my-repo",
+		},
+		"scp-like ssh remote": {
+			remoteURL:   "git@github.com:my-account/my-repo.git",
+			wantAccount: "my-account",
+			wantRepo:    "my-repo",
+		},
+		"ssh URL remote": {
+			remoteURL:   "ssh://git@github.com/my-account/my-repo.git",
+			wantAccount: "my-account",
+			wantRepo:    "my-repo",
+		},
+		"host path remote": {
+			remoteURL:   "github.com/my-account/my-repo",
+			wantAccount: "my-account",
+			wantRepo:    "my-repo",
+		},
+		"non-GitHub remote": {
+			remoteURL: "git@example.com:my-account/my-repo.git",
+		},
+		"nested path": {
+			remoteURL: "https://github.com/my-account/my-repo/extra.git",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			accountName, repoName := parseGitHubRepository(tt.remoteURL)
+			assert.Equal(t, tt.wantAccount, accountName)
+			assert.Equal(t, tt.wantRepo, repoName)
+		})
+	}
+}
+
 func TestSetupReleaseSecrets(t *testing.T) {
 	tests := map[string]struct {
 		cfg          *config
@@ -562,11 +675,25 @@ func restoreCommandHooks(t *testing.T) {
 	t.Helper()
 
 	originalFindExecutable := findExecutable
+	originalRunGitCommand := runGitCommand
 	originalRunGitHubCommand := runGitHubCommand
 	t.Cleanup(func() {
 		findExecutable = originalFindExecutable
+		runGitCommand = originalRunGitCommand
 		runGitHubCommand = originalRunGitHubCommand
 	})
+}
+
+func disableRepositoryDetection(t *testing.T) {
+	t.Helper()
+
+	restoreCommandHooks(t)
+	runGitCommand = func(string, string, ...string) ([]byte, error) {
+		return nil, errors.New("git repository detection disabled")
+	}
+	runGitHubCommand = func(string, string, ...string) ([]byte, error) {
+		return nil, errors.New("GitHub repository detection disabled")
+	}
 }
 
 func runBootstrap(t *testing.T, tmpDir string, args ...string) (string, error) {
@@ -634,6 +761,7 @@ func readFile(t *testing.T, path string) string {
 
 func runLoadConfigInteractive(t *testing.T, includeBinary, includeVersion bool) (*config, error) {
 	t.Helper()
+	disableRepositoryDetection(t)
 
 	includeBinaryResponse := huhtest.ConfirmNegative
 	if includeBinary {

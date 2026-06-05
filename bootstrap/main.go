@@ -21,6 +21,7 @@ const (
 
 var (
 	findExecutable   = exec.LookPath
+	runGitCommand    = runExternalCommand
 	runGitHubCommand = runExternalCommand
 )
 
@@ -109,6 +110,10 @@ func loadConfigFromEnv(accountName string) (*config, error) {
 
 func loadConfigInteractive(in io.Reader, out io.Writer) (*config, error) {
 	cfg := &config{}
+	if accountName, repoName := detectRepositoryIdentity(); accountName != "" && repoName != "" {
+		cfg.accountName = accountName
+		cfg.repoName = repoName
+	}
 
 	accountInput := huh.NewInput().
 		Title("GitHub Account Name").
@@ -171,6 +176,59 @@ func loadConfigInteractive(in io.Reader, out io.Writer) (*config, error) {
 	}
 
 	return cfg, nil
+}
+
+func detectRepositoryIdentity() (string, string) {
+	if output, err := runGitCommand("", "git", "remote", "get-url", "origin"); err == nil {
+		if accountName, repoName := parseGitHubRepository(strings.TrimSpace(string(output))); accountName != "" && repoName != "" {
+			return accountName, repoName
+		}
+	}
+
+	if output, err := runGitHubCommand(
+		"",
+		"gh",
+		"repo",
+		"view",
+		"--json",
+		"owner,name",
+		"--jq",
+		".owner.login + \"/\" + .name",
+	); err == nil {
+		if accountName, repoName := splitRepositoryName(strings.TrimSpace(string(output))); accountName != "" && repoName != "" {
+			return accountName, repoName
+		}
+	}
+
+	return "", ""
+}
+
+func parseGitHubRepository(remoteURL string) (string, string) {
+	remoteURL = strings.TrimSpace(remoteURL)
+	remoteURL = strings.TrimSuffix(remoteURL, ".git")
+
+	switch {
+	case strings.HasPrefix(remoteURL, "git@github.com:"):
+		return splitRepositoryName(strings.TrimPrefix(remoteURL, "git@github.com:"))
+	case strings.HasPrefix(remoteURL, "https://github.com/"):
+		return splitRepositoryName(strings.TrimPrefix(remoteURL, "https://github.com/"))
+	case strings.HasPrefix(remoteURL, "http://github.com/"):
+		return splitRepositoryName(strings.TrimPrefix(remoteURL, "http://github.com/"))
+	case strings.HasPrefix(remoteURL, "ssh://git@github.com/"):
+		return splitRepositoryName(strings.TrimPrefix(remoteURL, "ssh://git@github.com/"))
+	case strings.HasPrefix(remoteURL, "github.com/"):
+		return splitRepositoryName(strings.TrimPrefix(remoteURL, "github.com/"))
+	default:
+		return "", ""
+	}
+}
+
+func splitRepositoryName(repository string) (string, string) {
+	parts := strings.Split(strings.Trim(repository, "/"), "/")
+	if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+		return "", ""
+	}
+	return parts[0], parts[1]
 }
 
 func validateName(name, field string) error {
