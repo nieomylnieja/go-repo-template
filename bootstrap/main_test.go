@@ -215,15 +215,7 @@ func TestBootstrap_FlagAfterPositionalArgs(t *testing.T) {
 }
 
 func TestLoadConfigInteractive_BothEnabled(t *testing.T) {
-	stdin, stdout, cancel := huhtest.NewResponder().
-		AddResponse("GitHub Account Name", "my-account").
-		AddResponse("Repository Name", "my-repo").
-		AddConfirm("Include Binary Support", huhtest.ConfirmAffirm).
-		AddConfirm("Include Versioning Support", huhtest.ConfirmAffirm).
-		Start(t, 30*time.Second)
-	defer cancel()
-
-	cfg, err := loadConfigInteractive(stdin, stdout)
+	cfg, err := runLoadConfigInteractive(t, true, true)
 	require.NoError(t, err)
 	assert.Equal(t, "my-account", cfg.accountName)
 	assert.Equal(t, "my-repo", cfg.repoName)
@@ -232,45 +224,21 @@ func TestLoadConfigInteractive_BothEnabled(t *testing.T) {
 }
 
 func TestLoadConfigInteractive_BinaryDisabled(t *testing.T) {
-	stdin, stdout, cancel := huhtest.NewResponder().
-		AddResponse("GitHub Account Name", "my-account").
-		AddResponse("Repository Name", "my-repo").
-		AddConfirm("Include Binary Support", huhtest.ConfirmNegative).
-		AddConfirm("Include Versioning Support", huhtest.ConfirmAffirm).
-		Start(t, 30*time.Second)
-	defer cancel()
-
-	cfg, err := loadConfigInteractive(stdin, stdout)
+	cfg, err := runLoadConfigInteractive(t, false, true)
 	require.NoError(t, err)
 	assert.False(t, cfg.includeBinary)
 	assert.True(t, cfg.includeVersion)
 }
 
 func TestLoadConfigInteractive_VersioningDisabled(t *testing.T) {
-	stdin, stdout, cancel := huhtest.NewResponder().
-		AddResponse("GitHub Account Name", "my-account").
-		AddResponse("Repository Name", "my-repo").
-		AddConfirm("Include Binary Support", huhtest.ConfirmAffirm).
-		AddConfirm("Include Versioning Support", huhtest.ConfirmNegative).
-		Start(t, 30*time.Second)
-	defer cancel()
-
-	cfg, err := loadConfigInteractive(stdin, stdout)
+	cfg, err := runLoadConfigInteractive(t, true, false)
 	require.NoError(t, err)
 	assert.True(t, cfg.includeBinary)
 	assert.False(t, cfg.includeVersion)
 }
 
 func TestLoadConfigInteractive_BothDisabled(t *testing.T) {
-	stdin, stdout, cancel := huhtest.NewResponder().
-		AddResponse("GitHub Account Name", "my-account").
-		AddResponse("Repository Name", "my-repo").
-		AddConfirm("Include Binary Support", huhtest.ConfirmNegative).
-		AddConfirm("Include Versioning Support", huhtest.ConfirmNegative).
-		Start(t, 30*time.Second)
-	defer cancel()
-
-	cfg, err := loadConfigInteractive(stdin, stdout)
+	cfg, err := runLoadConfigInteractive(t, false, false)
 	require.NoError(t, err)
 	assert.False(t, cfg.includeBinary)
 	assert.False(t, cfg.includeVersion)
@@ -280,8 +248,8 @@ func TestLoadConfigInteractive_WhitespaceTrimmed(t *testing.T) {
 	stdin, stdout, cancel := huhtest.NewResponder().
 		AddResponse("GitHub Account Name", "  my-account  ").
 		AddResponse("Repository Name", "  my-repo  ").
-		AddConfirm("Include Binary Support", huhtest.ConfirmAffirm).
-		AddConfirm("Include Versioning Support", huhtest.ConfirmAffirm).
+		AddConfirm("Include Binary Support?", huhtest.ConfirmAffirm).
+		AddConfirm("Include Versioning Support?", huhtest.ConfirmAffirm).
 		Start(t, 30*time.Second)
 	defer cancel()
 
@@ -464,6 +432,29 @@ func readFile(t *testing.T, path string) string {
 	return string(content)
 }
 
+func runLoadConfigInteractive(t *testing.T, includeBinary bool, includeVersion bool) (*config, error) {
+	t.Helper()
+
+	includeBinaryResponse := huhtest.ConfirmNegative
+	if includeBinary {
+		includeBinaryResponse = huhtest.ConfirmAffirm
+	}
+	includeVersionResponse := huhtest.ConfirmNegative
+	if includeVersion {
+		includeVersionResponse = huhtest.ConfirmAffirm
+	}
+
+	stdin, stdout, cancel := huhtest.NewResponder().
+		AddResponse("GitHub Account Name", "my-account").
+		AddResponse("Repository Name", "my-repo").
+		AddConfirm("Include Binary Support?", includeBinaryResponse).
+		AddConfirm("Include Versioning Support?", includeVersionResponse).
+		Start(t, 30*time.Second)
+	defer cancel()
+
+	return loadConfigInteractive(stdin, stdout)
+}
+
 func copyProject(t *testing.T, dst string) {
 	t.Helper()
 	// We're in the bootstrap directory, so copy the parent (project root)
@@ -489,4 +480,3 @@ func findModuleRoot(t *testing.T) string {
 	})
 	return moduleRoot
 }
-

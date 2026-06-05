@@ -46,7 +46,7 @@ release:
     goreleaser release --snapshot --clean
 
 # Run all unit tests
-test:
+test: test-bootstrap
     @{{ print_step }} "Running unit tests"
     go test -race -cover ./...
 

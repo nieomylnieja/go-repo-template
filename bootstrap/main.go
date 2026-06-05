@@ -82,34 +82,37 @@ func loadConfigFromEnv(accountName string) (*config, error) {
 
 func loadConfigInteractive(in io.Reader, out io.Writer) (*config, error) {
 	cfg := &config{}
+
+	accountInput := huh.NewInput().
+		Title("GitHub Account Name").
+		Description("The GitHub account or organization that owns this repository").
+		Value(&cfg.accountName).
+		Validate(func(s string) error {
+			return validateName(strings.TrimSpace(s), "account name")
+		})
+	repoInput := huh.NewInput().
+		Title("Repository Name").
+		Description("The name of your new repository").
+		Value(&cfg.repoName).
+		Validate(func(s string) error {
+			return validateName(strings.TrimSpace(s), "repository name")
+		})
+	binaryConfirm := huh.NewConfirm().
+		Title("Include Binary Support?").
+		Description("Include goreleaser configuration and binary build workflows").
+		Value(&cfg.includeBinary)
+	versionConfirm := huh.NewConfirm().
+		Title("Include Versioning Support?").
+		Description("Include release drafter and automated versioning workflows").
+		Value(&cfg.includeVersion)
+
 	form := huh.NewForm(
-		huh.NewGroup(
-			huh.NewInput().
-				Title("GitHub Account Name").
-				Description("The GitHub account or organization that owns this repository").
-				Value(&cfg.accountName).
-				Validate(func(s string) error {
-					return validateName(strings.TrimSpace(s), "account name")
-				}),
-			huh.NewInput().
-				Title("Repository Name").
-				Description("The name of your new repository").
-				Value(&cfg.repoName).
-				Validate(func(s string) error {
-					return validateName(strings.TrimSpace(s), "repository name")
-				}),
-		),
-		huh.NewGroup(
-			huh.NewConfirm().
-				Title("Include Binary Support?").
-				Description("Include goreleaser configuration and binary build workflows").
-				Value(&cfg.includeBinary),
-			huh.NewConfirm().
-				Title("Include Versioning Support?").
-				Description("Include release drafter and automated versioning workflows").
-				Value(&cfg.includeVersion),
-		),
-	).WithInput(in).WithOutput(out)
+		huh.NewGroup(accountInput, repoInput),
+		huh.NewGroup(binaryConfirm, versionConfirm),
+	).
+		WithInput(in).
+		WithOutput(out).
+		WithAccessible(os.Getenv("ACCESSIBLE") != "")
 	if err := form.Run(); err != nil {
 		return nil, fmt.Errorf("form error: %w", err)
 	}
@@ -264,6 +267,65 @@ func removeJustfileRecipes(isSectionHeader func(string) bool) error {
 	return nil
 }
 
+func removeJustfileRecipeDependency(recipeName, dependencyName string) error {
+	justfilePath := "justfile"
+
+	info, err := os.Stat(justfilePath)
+	if err != nil {
+		return fmt.Errorf("failed to stat justfile: %w", err)
+	}
+
+	content, err := os.ReadFile(justfilePath)
+	if err != nil {
+		return fmt.Errorf("failed to read justfile: %w", err)
+	}
+
+	lines := strings.Split(string(content), "\n")
+	recipePrefix := recipeName + ":"
+	changed := false
+
+	for i, line := range lines {
+		if !strings.HasPrefix(line, recipePrefix) {
+			continue
+		}
+
+		fields := strings.Fields(line)
+		if len(fields) == 0 || fields[0] != recipePrefix {
+			continue
+		}
+
+		dependencies := fields[1:]
+		filteredDependencies := dependencies[:0]
+		for _, dependency := range dependencies {
+			if dependency != dependencyName {
+				filteredDependencies = append(filteredDependencies, dependency)
+			}
+		}
+		if len(filteredDependencies) == len(dependencies) {
+			continue
+		}
+
+		newLine := recipePrefix
+		if len(filteredDependencies) > 0 {
+			newLine += " " + strings.Join(filteredDependencies, " ")
+		}
+		lines[i] = newLine
+		changed = true
+	}
+
+	if !changed {
+		return nil
+	}
+
+	newContent := strings.Join(lines, "\n")
+	//nolint:gosec // G306: preserving original file permissions is intentional
+	if err := os.WriteFile(justfilePath, []byte(newContent), info.Mode().Perm()); err != nil {
+		return fmt.Errorf("failed to write justfile: %w", err)
+	}
+
+	return nil
+}
+
 func removeVersioningSupport() error {
 	fmt.Println("  Removing versioning support files...")
 
@@ -384,6 +446,10 @@ func cleanupBootstrapFiles(repoName string) error {
 			line == "# Run bootstrap tests"
 	}); err != nil {
 		return fmt.Errorf("failed to remove bootstrap recipes from justfile: %w", err)
+	}
+
+	if err := removeJustfileRecipeDependency("test", "test-bootstrap"); err != nil {
+		return fmt.Errorf("failed to remove bootstrap test dependency from justfile: %w", err)
 	}
 
 	readme := fmt.Sprintf("# %s\n\nTODO\n", repoName)
