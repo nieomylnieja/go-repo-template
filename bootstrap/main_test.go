@@ -78,6 +78,7 @@ func TestBootstrap_DefaultBehavior(t *testing.T) {
 	t.Run("keeps versioning-related files", func(t *testing.T) {
 		assert.FileExists(t, filepath.Join(tmpDir, ".github", "scripts", "release-notes.bash"))
 		assert.FileExists(t, filepath.Join(tmpDir, ".github", "release-drafter.yml"))
+		assert.FileExists(t, filepath.Join(tmpDir, ".github", "workflows", "pr-autolabeler.yml"))
 		assert.FileExists(t, filepath.Join(tmpDir, ".github", "workflows", "release-drafter.yml"))
 	})
 
@@ -131,6 +132,7 @@ func TestBootstrap_NoVersioningFlag(t *testing.T) {
 	t.Run("removes versioning-related files", func(t *testing.T) {
 		assert.NoFileExists(t, filepath.Join(tmpDir, ".github", "scripts", "release-notes.bash"))
 		assert.NoFileExists(t, filepath.Join(tmpDir, ".github", "release-drafter.yml"))
+		assert.NoFileExists(t, filepath.Join(tmpDir, ".github", "workflows", "pr-autolabeler.yml"))
 		assert.NoFileExists(t, filepath.Join(tmpDir, ".github", "workflows", "release-drafter.yml"))
 	})
 	t.Run("keeps binary-related files", func(t *testing.T) {
@@ -432,7 +434,7 @@ func readFile(t *testing.T, path string) string {
 	return string(content)
 }
 
-func runLoadConfigInteractive(t *testing.T, includeBinary bool, includeVersion bool) (*config, error) {
+func runLoadConfigInteractive(t *testing.T, includeBinary, includeVersion bool) (*config, error) {
 	t.Helper()
 
 	includeBinaryResponse := huhtest.ConfirmNegative
