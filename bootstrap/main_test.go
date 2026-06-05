@@ -1,17 +1,17 @@
 package main
 
 import (
-	"bytes"
 	_ "embed"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/survivorbat/huhtest"
 )
 
 //go:embed testdata/expected-justfile-with-binary
@@ -215,7 +215,7 @@ func TestBootstrap_FlagAfterPositionalArgs(t *testing.T) {
 }
 
 func TestLoadConfigInteractive_BothEnabled(t *testing.T) {
-	cfg, err := runLoadConfigInteractive(t, "my-account\nmy-repo\ny\ny\n")
+	cfg, err := runLoadConfigInteractive(t, true, true)
 	require.NoError(t, err)
 	assert.Equal(t, "my-account", cfg.accountName)
 	assert.Equal(t, "my-repo", cfg.repoName)
@@ -224,28 +224,36 @@ func TestLoadConfigInteractive_BothEnabled(t *testing.T) {
 }
 
 func TestLoadConfigInteractive_BinaryDisabled(t *testing.T) {
-	cfg, err := runLoadConfigInteractive(t, "my-account\nmy-repo\nn\ny\n")
+	cfg, err := runLoadConfigInteractive(t, false, true)
 	require.NoError(t, err)
 	assert.False(t, cfg.includeBinary)
 	assert.True(t, cfg.includeVersion)
 }
 
 func TestLoadConfigInteractive_VersioningDisabled(t *testing.T) {
-	cfg, err := runLoadConfigInteractive(t, "my-account\nmy-repo\ny\nn\n")
+	cfg, err := runLoadConfigInteractive(t, true, false)
 	require.NoError(t, err)
 	assert.True(t, cfg.includeBinary)
 	assert.False(t, cfg.includeVersion)
 }
 
 func TestLoadConfigInteractive_BothDisabled(t *testing.T) {
-	cfg, err := runLoadConfigInteractive(t, "my-account\nmy-repo\nn\nn\n")
+	cfg, err := runLoadConfigInteractive(t, false, false)
 	require.NoError(t, err)
 	assert.False(t, cfg.includeBinary)
 	assert.False(t, cfg.includeVersion)
 }
 
 func TestLoadConfigInteractive_WhitespaceTrimmed(t *testing.T) {
-	cfg, err := runLoadConfigInteractive(t, "  my-account  \n  my-repo  \ny\ny\n")
+	stdin, stdout, cancel := huhtest.NewResponder().
+		AddResponse("GitHub Account Name", "  my-account  ").
+		AddResponse("Repository Name", "  my-repo  ").
+		AddConfirm("Include Binary Support?", huhtest.ConfirmAffirm).
+		AddConfirm("Include Versioning Support?", huhtest.ConfirmAffirm).
+		Start(t, 30*time.Second)
+	defer cancel()
+
+	cfg, err := loadConfigInteractive(stdin, stdout)
 	require.NoError(t, err)
 	assert.Equal(t, "my-account", cfg.accountName)
 	assert.Equal(t, "my-repo", cfg.repoName)
@@ -424,12 +432,27 @@ func readFile(t *testing.T, path string) string {
 	return string(content)
 }
 
-func runLoadConfigInteractive(t *testing.T, input string) (*config, error) {
+func runLoadConfigInteractive(t *testing.T, includeBinary bool, includeVersion bool) (*config, error) {
 	t.Helper()
-	t.Setenv("ACCESSIBLE", "1")
 
-	var output bytes.Buffer
-	return loadConfigInteractive(strings.NewReader(input), &output)
+	includeBinaryResponse := huhtest.ConfirmNegative
+	if includeBinary {
+		includeBinaryResponse = huhtest.ConfirmAffirm
+	}
+	includeVersionResponse := huhtest.ConfirmNegative
+	if includeVersion {
+		includeVersionResponse = huhtest.ConfirmAffirm
+	}
+
+	stdin, stdout, cancel := huhtest.NewResponder().
+		AddResponse("GitHub Account Name", "my-account").
+		AddResponse("Repository Name", "my-repo").
+		AddConfirm("Include Binary Support?", includeBinaryResponse).
+		AddConfirm("Include Versioning Support?", includeVersionResponse).
+		Start(t, 30*time.Second)
+	defer cancel()
+
+	return loadConfigInteractive(stdin, stdout)
 }
 
 func copyProject(t *testing.T, dst string) {

@@ -2,7 +2,6 @@
 package main
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"io"
@@ -84,13 +83,6 @@ func loadConfigFromEnv(accountName string) (*config, error) {
 func loadConfigInteractive(in io.Reader, out io.Writer) (*config, error) {
 	cfg := &config{}
 
-	if os.Getenv("ACCESSIBLE") != "" {
-		if err := loadConfigAccessible(in, out, cfg); err != nil {
-			return nil, fmt.Errorf("form error: %w", err)
-		}
-		return cfg, nil
-	}
-
 	accountInput := huh.NewInput().
 		Title("GitHub Account Name").
 		Description("The GitHub account or organization that owns this repository").
@@ -117,89 +109,16 @@ func loadConfigInteractive(in io.Reader, out io.Writer) (*config, error) {
 	form := huh.NewForm(
 		huh.NewGroup(accountInput, repoInput),
 		huh.NewGroup(binaryConfirm, versionConfirm),
-	).WithInput(in).WithOutput(out)
+	).
+		WithInput(in).
+		WithOutput(out).
+		WithAccessible(os.Getenv("ACCESSIBLE") != "")
 	if err := form.Run(); err != nil {
 		return nil, fmt.Errorf("form error: %w", err)
 	}
 	cfg.accountName = strings.TrimSpace(cfg.accountName)
 	cfg.repoName = strings.TrimSpace(cfg.repoName)
 	return cfg, nil
-}
-
-func loadConfigAccessible(in io.Reader, out io.Writer, cfg *config) error {
-	reader := bufio.NewReader(in)
-
-	accountName, err := readAccessibleInput(reader, out, "GitHub Account Name", "account name")
-	if err != nil {
-		return err
-	}
-	repoName, err := readAccessibleInput(reader, out, "Repository Name", "repository name")
-	if err != nil {
-		return err
-	}
-	includeBinary, err := readAccessibleConfirm(reader, out, "Include Binary Support?")
-	if err != nil {
-		return err
-	}
-	includeVersion, err := readAccessibleConfirm(reader, out, "Include Versioning Support?")
-	if err != nil {
-		return err
-	}
-
-	cfg.accountName = accountName
-	cfg.repoName = repoName
-	cfg.includeBinary = includeBinary
-	cfg.includeVersion = includeVersion
-	return nil
-}
-
-func readAccessibleInput(
-	reader *bufio.Reader,
-	out io.Writer,
-	title string,
-	field string,
-) (string, error) {
-	line, err := readAccessibleLine(reader, out, title+" ")
-	if err != nil {
-		return "", err
-	}
-
-	value := strings.TrimSpace(line)
-	if err := validateName(value, field); err != nil {
-		return "", err
-	}
-	return value, nil
-}
-
-func readAccessibleConfirm(reader *bufio.Reader, out io.Writer, title string) (bool, error) {
-	line, err := readAccessibleLine(reader, out, title+" [y/N] ")
-	if err != nil {
-		return false, err
-	}
-
-	switch strings.ToLower(strings.TrimSpace(line)) {
-	case "y", "yes":
-		return true, nil
-	case "", "n", "no":
-		return false, nil
-	default:
-		return false, fmt.Errorf("invalid response for %s: %q (expected y or n)", title, line)
-	}
-}
-
-func readAccessibleLine(reader *bufio.Reader, out io.Writer, prompt string) (string, error) {
-	if _, err := fmt.Fprint(out, prompt); err != nil {
-		return "", fmt.Errorf("failed to write prompt: %w", err)
-	}
-
-	line, err := reader.ReadString('\n')
-	if err != nil {
-		if errors.Is(err, io.EOF) && line != "" {
-			return line, nil
-		}
-		return "", fmt.Errorf("failed to read prompt response: %w", err)
-	}
-	return line, nil
 }
 
 func validateName(name, field string) error {
