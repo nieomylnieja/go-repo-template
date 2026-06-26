@@ -155,7 +155,8 @@ func loadConfigInteractive(in io.Reader, out io.Writer) (*config, error) {
 
 	form := huh.NewForm(
 		huh.NewGroup(accountInput, repoInput),
-		huh.NewGroup(binaryConfirm, versionConfirm),
+		huh.NewGroup(binaryConfirm),
+		huh.NewGroup(versionConfirm),
 		huh.NewGroup(setupSecretsConfirm).WithHideFunc(func() bool {
 			return !cfg.includeBinary && !cfg.includeVersion
 		}),
