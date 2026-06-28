@@ -2,9 +2,11 @@ package main
 
 import (
 	_ "embed"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -223,6 +225,7 @@ func TestLoadConfigInteractive_BothEnabled(t *testing.T) {
 	assert.Equal(t, "my-repo", cfg.repoName)
 	assert.True(t, cfg.includeBinary)
 	assert.True(t, cfg.includeVersion)
+	assert.False(t, cfg.setupSecrets)
 }
 
 func TestLoadConfigInteractive_BinaryDisabled(t *testing.T) {
@@ -247,11 +250,14 @@ func TestLoadConfigInteractive_BothDisabled(t *testing.T) {
 }
 
 func TestLoadConfigInteractive_WhitespaceTrimmed(t *testing.T) {
+	disableRepositoryDetection(t)
+
 	stdin, stdout, cancel := huhtest.NewResponder().
 		AddResponse("GitHub Account Name", "  my-account  ").
 		AddResponse("Repository Name", "  my-repo  ").
 		AddConfirm("Include Binary Support?", huhtest.ConfirmAffirm).
 		AddConfirm("Include Versioning Support?", huhtest.ConfirmAffirm).
+		AddConfirm("Set GitHub Release Secrets?", huhtest.ConfirmNegative).
 		Start(t, 30*time.Second)
 	defer cancel()
 
@@ -261,6 +267,32 @@ func TestLoadConfigInteractive_WhitespaceTrimmed(t *testing.T) {
 	assert.Equal(t, "my-repo", cfg.repoName)
 }
 
+func TestLoadConfigInteractive_SetupSecrets(t *testing.T) {
+	disableRepositoryDetection(t)
+
+	stdin, stdout, cancel := huhtest.NewResponder().
+		AddResponse("GitHub Account Name", "my-account").
+		AddResponse("Repository Name", "my-repo").
+		AddConfirm("Include Binary Support?", huhtest.ConfirmAffirm).
+		AddConfirm("Include Versioning Support?", huhtest.ConfirmAffirm).
+		AddConfirm("Set GitHub Release Secrets?", huhtest.ConfirmAffirm).
+		AddResponse("GitHub Release Token", "  secret-token  ").
+		Start(t, 30*time.Second)
+	defer cancel()
+
+	cfg, err := loadConfigInteractive(stdin, stdout)
+	require.NoError(t, err)
+	assert.True(t, cfg.setupSecrets)
+	assert.Equal(t, "secret-token", cfg.releaseToken)
+}
+
+func TestLoadConfigInteractive_SkipsSecretsPromptWithoutReleaseFeatures(t *testing.T) {
+	cfg, err := runLoadConfigInteractive(t, false, false)
+	require.NoError(t, err)
+	assert.False(t, cfg.setupSecrets)
+	assert.Empty(t, cfg.releaseToken)
+}
+
 func TestLoadConfigFromEnv(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -268,11 +300,15 @@ func TestLoadConfigFromEnv(t *testing.T) {
 		repo           string
 		noBinary       string
 		noVersioning   string
+		setupSecrets   string
+		releaseToken   string
 		wantErr        bool
 		wantAccount    string
 		wantRepo       string
 		wantBinary     bool
 		wantVersioning bool
+		wantSetup      bool
+		wantToken      string
 	}{
 		{
 			name:    "missing BOOTSTRAP_REPO returns error",
@@ -339,6 +375,26 @@ func TestLoadConfigFromEnv(t *testing.T) {
 			wantBinary:     true,
 			wantVersioning: true,
 		},
+		{
+			name:           "BOOTSTRAP_SETUP_SECRETS=true stores trimmed token",
+			account:        "my-account",
+			repo:           "my-repo",
+			setupSecrets:   "true",
+			releaseToken:   "  secret-token  ",
+			wantAccount:    "my-account",
+			wantRepo:       "my-repo",
+			wantBinary:     true,
+			wantVersioning: true,
+			wantSetup:      true,
+			wantToken:      "secret-token",
+		},
+		{
+			name:         "BOOTSTRAP_SETUP_SECRETS=true requires token",
+			account:      "my-account",
+			repo:         "my-repo",
+			setupSecrets: "true",
+			wantErr:      true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -347,6 +403,8 @@ func TestLoadConfigFromEnv(t *testing.T) {
 			t.Setenv("BOOTSTRAP_REPO", tt.repo)
 			t.Setenv("BOOTSTRAP_NO_BINARY", tt.noBinary)
 			t.Setenv("BOOTSTRAP_NO_VERSIONING", tt.noVersioning)
+			t.Setenv("BOOTSTRAP_SETUP_SECRETS", tt.setupSecrets)
+			t.Setenv("BOOTSTRAP_RELEASE_TOKEN", tt.releaseToken)
 
 			cfg, err := loadConfigFromEnv(tt.account)
 			if tt.wantErr {
@@ -358,6 +416,248 @@ func TestLoadConfigFromEnv(t *testing.T) {
 			assert.Equal(t, tt.wantRepo, cfg.repoName)
 			assert.Equal(t, tt.wantBinary, cfg.includeBinary)
 			assert.Equal(t, tt.wantVersioning, cfg.includeVersion)
+			assert.Equal(t, tt.wantSetup, cfg.setupSecrets)
+			assert.Equal(t, tt.wantToken, cfg.releaseToken)
+		})
+	}
+}
+
+func TestDetectRepositoryIdentity(t *testing.T) {
+	tests := map[string]struct {
+		gitOutput          string
+		gitErr             error
+		ghOutput           string
+		ghErr              error
+		wantAccount        string
+		wantRepo           string
+		wantGitCommands    [][]string
+		wantGitHubCommands [][]string
+	}{
+		"git remote": {
+			gitOutput:       "https://github.com/my-account/my-repo.git\n",
+			wantAccount:     "my-account",
+			wantRepo:        "my-repo",
+			wantGitCommands: [][]string{{"git", "remote", "get-url", "origin"}},
+		},
+		"gh fallback": {
+			gitErr:             errors.New("exit status 2"),
+			ghOutput:           "my-account/my-repo\n",
+			wantAccount:        "my-account",
+			wantRepo:           "my-repo",
+			wantGitCommands:    [][]string{{"git", "remote", "get-url", "origin"}},
+			wantGitHubCommands: [][]string{{"gh", "repo", "view", "--json", "owner,name", "--jq", ".owner.login + \"/\" + .name"}},
+		},
+		"no repository detected": {
+			gitErr:             errors.New("exit status 2"),
+			ghErr:              errors.New("exit status 1"),
+			wantGitCommands:    [][]string{{"git", "remote", "get-url", "origin"}},
+			wantGitHubCommands: [][]string{{"gh", "repo", "view", "--json", "owner,name", "--jq", ".owner.login + \"/\" + .name"}},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			var gitCommands [][]string
+			var gitHubCommands [][]string
+			restoreCommandHooks(t)
+			runGitCommand = func(stdin string, name string, args ...string) ([]byte, error) {
+				assert.Empty(t, stdin)
+				command := append([]string{name}, args...)
+				gitCommands = append(gitCommands, command)
+				return []byte(tt.gitOutput), tt.gitErr
+			}
+			runGitHubCommand = func(stdin string, name string, args ...string) ([]byte, error) {
+				assert.Empty(t, stdin)
+				command := append([]string{name}, args...)
+				gitHubCommands = append(gitHubCommands, command)
+				return []byte(tt.ghOutput), tt.ghErr
+			}
+
+			accountName, repoName := detectRepositoryIdentity()
+
+			assert.Equal(t, tt.wantAccount, accountName)
+			assert.Equal(t, tt.wantRepo, repoName)
+			assert.Equal(t, tt.wantGitCommands, gitCommands)
+			assert.Equal(t, tt.wantGitHubCommands, gitHubCommands)
+		})
+	}
+}
+
+func TestParseGitHubRepository(t *testing.T) {
+	tests := map[string]struct {
+		remoteURL   string
+		wantAccount string
+		wantRepo    string
+	}{
+		"https remote": {
+			remoteURL:   "https://github.com/my-account/my-repo.git",
+			wantAccount: "my-account",
+			wantRepo:    "my-repo",
+		},
+		"http remote": {
+			remoteURL:   "http://github.com/my-account/my-repo.git",
+			wantAccount: "my-account",
+			wantRepo:    "my-repo",
+		},
+		"scp-like ssh remote": {
+			remoteURL:   "git@github.com:my-account/my-repo.git",
+			wantAccount: "my-account",
+			wantRepo:    "my-repo",
+		},
+		"ssh URL remote": {
+			remoteURL:   "ssh://git@github.com/my-account/my-repo.git",
+			wantAccount: "my-account",
+			wantRepo:    "my-repo",
+		},
+		"host path remote": {
+			remoteURL:   "github.com/my-account/my-repo",
+			wantAccount: "my-account",
+			wantRepo:    "my-repo",
+		},
+		"non-GitHub remote": {
+			remoteURL: "git@example.com:my-account/my-repo.git",
+		},
+		"nested path": {
+			remoteURL: "https://github.com/my-account/my-repo/extra.git",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			accountName, repoName := parseGitHubRepository(tt.remoteURL)
+			assert.Equal(t, tt.wantAccount, accountName)
+			assert.Equal(t, tt.wantRepo, repoName)
+		})
+	}
+}
+
+func TestSetupReleaseSecrets(t *testing.T) {
+	tests := map[string]struct {
+		cfg          *config
+		lookPathErr  error
+		commandErrs  map[string]error
+		wantCommands [][]string
+		wantStdin    []string
+		wantErr      string
+	}{
+		"binary only": {
+			cfg: &config{
+				accountName:   "my-account",
+				repoName:      "my-repo",
+				includeBinary: true,
+				releaseToken:  "secret-token",
+			},
+			wantCommands: [][]string{
+				{"gh", "auth", "status"},
+				{"gh", "secret", "set", goreleaserSecretName, "--repo", "my-account/my-repo"},
+			},
+			wantStdin: []string{"", "secret-token"},
+		},
+		"versioning only": {
+			cfg: &config{
+				accountName:    "my-account",
+				repoName:       "my-repo",
+				includeVersion: true,
+				releaseToken:   "secret-token",
+			},
+			wantCommands: [][]string{
+				{"gh", "auth", "status"},
+				{"gh", "secret", "set", releaseDrafterSecretName, "--repo", "my-account/my-repo"},
+			},
+			wantStdin: []string{"", "secret-token"},
+		},
+		"both release features": {
+			cfg: &config{
+				accountName:    "my-account",
+				repoName:       "my-repo",
+				includeBinary:  true,
+				includeVersion: true,
+				releaseToken:   "secret-token",
+			},
+			wantCommands: [][]string{
+				{"gh", "auth", "status"},
+				{"gh", "secret", "set", goreleaserSecretName, "--repo", "my-account/my-repo"},
+				{"gh", "secret", "set", releaseDrafterSecretName, "--repo", "my-account/my-repo"},
+			},
+			wantStdin: []string{"", "secret-token", "secret-token"},
+		},
+		"missing gh": {
+			cfg: &config{
+				accountName:   "my-account",
+				repoName:      "my-repo",
+				includeBinary: true,
+				releaseToken:  "secret-token",
+			},
+			lookPathErr: errors.New("executable file not found"),
+			wantErr:     "GitHub CLI (gh) is required",
+		},
+		"auth failure": {
+			cfg: &config{
+				accountName:   "my-account",
+				repoName:      "my-repo",
+				includeBinary: true,
+				releaseToken:  "secret-token",
+			},
+			commandErrs: map[string]error{
+				"gh auth status": errors.New("exit status 1"),
+			},
+			wantCommands: [][]string{
+				{"gh", "auth", "status"},
+			},
+			wantStdin: []string{""},
+			wantErr:   "gh auth status failed",
+		},
+		"secret set failure": {
+			cfg: &config{
+				accountName:   "my-account",
+				repoName:      "my-repo",
+				includeBinary: true,
+				releaseToken:  "secret-token",
+			},
+			commandErrs: map[string]error{
+				"gh secret set GORELEASER_TOKEN --repo my-account/my-repo": errors.New("exit status 1"),
+			},
+			wantCommands: [][]string{
+				{"gh", "auth", "status"},
+				{"gh", "secret", "set", goreleaserSecretName, "--repo", "my-account/my-repo"},
+			},
+			wantStdin: []string{"", "secret-token"},
+			wantErr:   "gh secret set failed for GORELEASER_TOKEN",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			var commands [][]string
+			var stdins []string
+			restoreCommandHooks(t)
+			findExecutable = func(file string) (string, error) {
+				assert.Equal(t, "gh", file)
+				if tt.lookPathErr != nil {
+					return "", tt.lookPathErr
+				}
+				return "/usr/bin/gh", nil
+			}
+			runGitHubCommand = func(stdin string, name string, args ...string) ([]byte, error) {
+				command := append([]string{name}, args...)
+				commands = append(commands, command)
+				stdins = append(stdins, stdin)
+				if err := tt.commandErrs[strings.Join(command, " ")]; err != nil {
+					return []byte("command failed"), err
+				}
+				return []byte("ok"), nil
+			}
+
+			err := setupReleaseSecrets(tt.cfg)
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.wantErr)
+				assert.NotContains(t, err.Error(), "secret-token")
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Equal(t, tt.wantCommands, commands)
+			assert.Equal(t, tt.wantStdin, stdins)
 		})
 	}
 }
@@ -369,6 +669,31 @@ func getExpectedJustfile(t *testing.T, includeBinary bool) string {
 		return expectedJustfileWithBinary
 	}
 	return expectedJustfileNoBinary
+}
+
+func restoreCommandHooks(t *testing.T) {
+	t.Helper()
+
+	originalFindExecutable := findExecutable
+	originalRunGitCommand := runGitCommand
+	originalRunGitHubCommand := runGitHubCommand
+	t.Cleanup(func() {
+		findExecutable = originalFindExecutable
+		runGitCommand = originalRunGitCommand
+		runGitHubCommand = originalRunGitHubCommand
+	})
+}
+
+func disableRepositoryDetection(t *testing.T) {
+	t.Helper()
+
+	restoreCommandHooks(t)
+	runGitCommand = func(string, string, ...string) ([]byte, error) {
+		return nil, errors.New("git repository detection disabled")
+	}
+	runGitHubCommand = func(string, string, ...string) ([]byte, error) {
+		return nil, errors.New("GitHub repository detection disabled")
+	}
 }
 
 func runBootstrap(t *testing.T, tmpDir string, args ...string) (string, error) {
@@ -436,6 +761,7 @@ func readFile(t *testing.T, path string) string {
 
 func runLoadConfigInteractive(t *testing.T, includeBinary, includeVersion bool) (*config, error) {
 	t.Helper()
+	disableRepositoryDetection(t)
 
 	includeBinaryResponse := huhtest.ConfirmNegative
 	if includeBinary {
@@ -446,12 +772,16 @@ func runLoadConfigInteractive(t *testing.T, includeBinary, includeVersion bool) 
 		includeVersionResponse = huhtest.ConfirmAffirm
 	}
 
-	stdin, stdout, cancel := huhtest.NewResponder().
+	responder := huhtest.NewResponder().
 		AddResponse("GitHub Account Name", "my-account").
 		AddResponse("Repository Name", "my-repo").
 		AddConfirm("Include Binary Support?", includeBinaryResponse).
-		AddConfirm("Include Versioning Support?", includeVersionResponse).
-		Start(t, 30*time.Second)
+		AddConfirm("Include Versioning Support?", includeVersionResponse)
+	if includeBinary || includeVersion {
+		responder = responder.AddConfirm("Set GitHub Release Secrets?", huhtest.ConfirmNegative)
+	}
+
+	stdin, stdout, cancel := responder.Start(t, 30*time.Second)
 	defer cancel()
 
 	return loadConfigInteractive(stdin, stdout)
