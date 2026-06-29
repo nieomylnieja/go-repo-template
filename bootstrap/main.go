@@ -560,7 +560,73 @@ func removeVersioningSupport() error {
 		}
 	}
 
+	if err := removeReleaseNotesCheck(); err != nil {
+		return err
+	}
+
 	return nil
+}
+
+func removeReleaseNotesCheck() error {
+	workflowPath := ".github/workflows/pr-check.yml"
+
+	content, err := os.ReadFile(workflowPath)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("failed to read %s: %w", workflowPath, err)
+	}
+
+	info, err := os.Stat(workflowPath)
+	if err != nil {
+		return fmt.Errorf("failed to inspect %s: %w", workflowPath, err)
+	}
+
+	newContent, changed := removeReleaseNotesCheckJob(string(content))
+	if !changed {
+		return nil
+	}
+
+	//nolint:gosec // G306: preserving original file permissions is intentional
+	if err := os.WriteFile(workflowPath, []byte(newContent), info.Mode().Perm()); err != nil {
+		return fmt.Errorf("failed to write %s: %w", workflowPath, err)
+	}
+
+	return nil
+}
+
+func removeReleaseNotesCheckJob(content string) (string, bool) {
+	lines := strings.Split(content, "\n")
+	newLines := make([]string, 0, len(lines))
+	inReleaseNotesJob := false
+	removed := false
+
+	for _, line := range lines {
+		if line == "  release-notes-check:" {
+			inReleaseNotesJob = true
+			removed = true
+			continue
+		}
+
+		if inReleaseNotesJob {
+			nextJob := strings.HasPrefix(line, "  ") &&
+				!strings.HasPrefix(line, "    ") &&
+				strings.TrimSpace(line) != ""
+			if !nextJob {
+				continue
+			}
+			inReleaseNotesJob = false
+		}
+
+		newLines = append(newLines, line)
+	}
+
+	if !removed {
+		return content, false
+	}
+
+	return strings.TrimRight(strings.Join(newLines, "\n"), "\n") + "\n", true
 }
 
 func renameCmd(repoName string) error {

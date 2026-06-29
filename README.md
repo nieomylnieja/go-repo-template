@@ -21,7 +21,8 @@ The CLI will guide you through an interactive form to configure your new project
 - **Include Binary Support?**:
   Whether to include GoReleaser configuration and binary build workflows
 - **Include Versioning Support?**:
-  Whether to include release drafter and automated versioning workflows
+  Whether to include release drafter, automated versioning workflows,
+  and release-note checks for `feat:` and `fix:` pull requests
 - **Set GitHub Release Secrets?**:
   Optionally store supplied personal access tokens as the required GitHub
   Actions release secrets with the GitHub CLI.

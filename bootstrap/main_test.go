@@ -81,7 +81,12 @@ func TestBootstrap_DefaultBehavior(t *testing.T) {
 		assert.FileExists(t, filepath.Join(tmpDir, ".github", "scripts", "release-notes.bash"))
 		assert.FileExists(t, filepath.Join(tmpDir, ".github", "release-drafter.yml"))
 		assert.FileExists(t, filepath.Join(tmpDir, ".github", "workflows", "pr-autolabeler.yml"))
+		assert.FileExists(t, filepath.Join(tmpDir, ".github", "workflows", "pr-check.yml"))
 		assert.FileExists(t, filepath.Join(tmpDir, ".github", "workflows", "release-drafter.yml"))
+
+		prCheck := readFile(t, filepath.Join(tmpDir, ".github", "workflows", "pr-check.yml"))
+		assert.Contains(t, prCheck, "  pr-title-check:")
+		assert.Contains(t, prCheck, "  release-notes-check:")
 	})
 
 	t.Run("keeps build and release recipes in justfile", func(t *testing.T) {
@@ -136,6 +141,12 @@ func TestBootstrap_NoVersioningFlag(t *testing.T) {
 		assert.NoFileExists(t, filepath.Join(tmpDir, ".github", "release-drafter.yml"))
 		assert.NoFileExists(t, filepath.Join(tmpDir, ".github", "workflows", "pr-autolabeler.yml"))
 		assert.NoFileExists(t, filepath.Join(tmpDir, ".github", "workflows", "release-drafter.yml"))
+	})
+	t.Run("keeps pull request title check only", func(t *testing.T) {
+		prCheck := readFile(t, filepath.Join(tmpDir, ".github", "workflows", "pr-check.yml"))
+
+		assert.Contains(t, prCheck, "  pr-title-check:")
+		assert.NotContains(t, prCheck, "  release-notes-check:")
 	})
 	t.Run("keeps binary-related files", func(t *testing.T) {
 		assert.FileExists(t, filepath.Join(tmpDir, ".goreleaser.yml"))

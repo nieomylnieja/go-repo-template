@@ -1,4 +1,5 @@
-name: PR Autolabeler
+name: Pull request labels
+run-name: "Label PR #${{ github.event.pull_request.number }}: ${{ github.event.pull_request.title }} by @${{ github.actor }}"
 
 on:
   # pull_request_target is required to label PRs from forks.

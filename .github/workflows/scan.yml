@@ -1,4 +1,6 @@
-name: Scan for vulnerabilities
+name: Vulnerability scan
+run-name: "Vulnerability scan for ${{ github.ref_name }} by @${{ github.actor }}"
+
 on:
   schedule:
     # Run at 8:00 AM every weekday.

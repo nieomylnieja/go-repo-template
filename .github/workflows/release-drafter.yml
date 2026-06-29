@@ -1,4 +1,5 @@
-name: Release Drafter
+name: Release draft
+run-name: "Update release draft from ${{ github.ref_name }} by @${{ github.actor }}"
 
 on:
   push:
