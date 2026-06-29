@@ -276,39 +276,94 @@ func TestLoadConfigInteractive_SetupSecrets(t *testing.T) {
 		AddConfirm("Include Binary Support?", huhtest.ConfirmAffirm).
 		AddConfirm("Include Versioning Support?", huhtest.ConfirmAffirm).
 		AddConfirm("Set GitHub Release Secrets?", huhtest.ConfirmAffirm).
-		AddResponse("GitHub Release Token", "  secret-token  ").
+		AddResponse("GoReleaser Token", "  goreleaser-token  ").
+		AddResponse("Release Drafter Token", "  release-drafter-token  ").
 		Start(t, 30*time.Second)
 	defer cancel()
 
 	cfg, err := loadConfigInteractive(stdin, stdout)
 	require.NoError(t, err)
 	assert.True(t, cfg.setupSecrets)
-	assert.Equal(t, "secret-token", cfg.releaseToken)
+	assert.Equal(t, "goreleaser-token", cfg.goreleaserToken)
+	assert.Equal(t, "release-drafter-token", cfg.releaseDrafterToken)
+}
+
+func TestReleaseTokenDescriptionsIncludeSecretNames(t *testing.T) {
+	assert.Equal(
+		t,
+		"Personal access token for GoReleaser; creates GitHub Actions secret GORELEASER_TOKEN; input is hidden",
+		goreleaserTokenDescription,
+	)
+	assert.Equal(
+		t,
+		"Personal access token for Release Drafter; creates GitHub Actions secret RELEASE_DRAFTER_TOKEN; input is hidden",
+		releaseDrafterTokenDescription,
+	)
+}
+
+func TestReleaseSecretsDescription(t *testing.T) {
+	tests := map[string]struct {
+		cfg  *config
+		want string
+	}{
+		"binary only": {
+			cfg: &config{
+				includeBinary: true,
+			},
+			want: "Creates GitHub Actions secret GORELEASER_TOKEN",
+		},
+		"both release features": {
+			cfg: &config{
+				includeBinary:  true,
+				includeVersion: true,
+			},
+			want: "Creates GitHub Actions secrets GORELEASER_TOKEN and RELEASE_DRAFTER_TOKEN",
+		},
+		"no release features": {
+			cfg:  &config{},
+			want: "No GitHub Actions release secrets will be created",
+		},
+		"versioning only": {
+			cfg: &config{
+				includeVersion: true,
+			},
+			want: "Creates GitHub Actions secret RELEASE_DRAFTER_TOKEN",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			assert.Equal(t, tt.want, releaseSecretsDescription(tt.cfg))
+		})
+	}
 }
 
 func TestLoadConfigInteractive_SkipsSecretsPromptWithoutReleaseFeatures(t *testing.T) {
 	cfg, err := runLoadConfigInteractive(t, false, false)
 	require.NoError(t, err)
 	assert.False(t, cfg.setupSecrets)
-	assert.Empty(t, cfg.releaseToken)
+	assert.Empty(t, cfg.goreleaserToken)
+	assert.Empty(t, cfg.releaseDrafterToken)
 }
 
 func TestLoadConfigFromEnv(t *testing.T) {
 	tests := []struct {
-		name           string
-		account        string
-		repo           string
-		noBinary       string
-		noVersioning   string
-		setupSecrets   string
-		releaseToken   string
-		wantErr        bool
-		wantAccount    string
-		wantRepo       string
-		wantBinary     bool
-		wantVersioning bool
-		wantSetup      bool
-		wantToken      string
+		name                    string
+		account                 string
+		repo                    string
+		noBinary                string
+		noVersioning            string
+		setupSecrets            string
+		goreleaserToken         string
+		releaseDrafterToken     string
+		wantErr                 bool
+		wantAccount             string
+		wantRepo                string
+		wantBinary              bool
+		wantVersioning          bool
+		wantSetup               bool
+		wantGoreleaserToken     string
+		wantReleaseDrafterToken string
 	}{
 		{
 			name:    "missing BOOTSTRAP_REPO returns error",
@@ -376,24 +431,78 @@ func TestLoadConfigFromEnv(t *testing.T) {
 			wantVersioning: true,
 		},
 		{
-			name:           "BOOTSTRAP_SETUP_SECRETS=true stores trimmed token",
-			account:        "my-account",
-			repo:           "my-repo",
-			setupSecrets:   "true",
-			releaseToken:   "  secret-token  ",
-			wantAccount:    "my-account",
-			wantRepo:       "my-repo",
-			wantBinary:     true,
-			wantVersioning: true,
-			wantSetup:      true,
-			wantToken:      "secret-token",
+			name:                    "BOOTSTRAP_SETUP_SECRETS=true stores trimmed tokens",
+			account:                 "my-account",
+			repo:                    "my-repo",
+			setupSecrets:            "true",
+			goreleaserToken:         "  goreleaser-token  ",
+			releaseDrafterToken:     "  release-drafter-token  ",
+			wantAccount:             "my-account",
+			wantRepo:                "my-repo",
+			wantBinary:              true,
+			wantVersioning:          true,
+			wantSetup:               true,
+			wantGoreleaserToken:     "goreleaser-token",
+			wantReleaseDrafterToken: "release-drafter-token",
 		},
 		{
-			name:         "BOOTSTRAP_SETUP_SECRETS=true requires token",
-			account:      "my-account",
-			repo:         "my-repo",
-			setupSecrets: "true",
-			wantErr:      true,
+			name:                    "BOOTSTRAP_SETUP_SECRETS=true with binary only stores GoReleaser token",
+			account:                 "my-account",
+			repo:                    "my-repo",
+			noVersioning:            "true",
+			setupSecrets:            "true",
+			goreleaserToken:         "  goreleaser-token  ",
+			wantAccount:             "my-account",
+			wantRepo:                "my-repo",
+			wantBinary:              true,
+			wantVersioning:          false,
+			wantSetup:               true,
+			wantGoreleaserToken:     "goreleaser-token",
+			wantReleaseDrafterToken: "",
+		},
+		{
+			name:                    "BOOTSTRAP_SETUP_SECRETS=true with versioning only stores Release Drafter token",
+			account:                 "my-account",
+			repo:                    "my-repo",
+			noBinary:                "true",
+			setupSecrets:            "true",
+			releaseDrafterToken:     "  release-drafter-token  ",
+			wantAccount:             "my-account",
+			wantRepo:                "my-repo",
+			wantBinary:              false,
+			wantVersioning:          true,
+			wantSetup:               true,
+			wantGoreleaserToken:     "",
+			wantReleaseDrafterToken: "release-drafter-token",
+		},
+		{
+			name:           "BOOTSTRAP_SETUP_SECRETS=true is ignored without release features",
+			account:        "my-account",
+			repo:           "my-repo",
+			noBinary:       "true",
+			noVersioning:   "true",
+			setupSecrets:   "true",
+			wantAccount:    "my-account",
+			wantRepo:       "my-repo",
+			wantBinary:     false,
+			wantVersioning: false,
+			wantSetup:      false,
+		},
+		{
+			name:                "BOOTSTRAP_SETUP_SECRETS=true requires GoReleaser token",
+			account:             "my-account",
+			repo:                "my-repo",
+			setupSecrets:        "true",
+			releaseDrafterToken: "release-drafter-token",
+			wantErr:             true,
+		},
+		{
+			name:            "BOOTSTRAP_SETUP_SECRETS=true requires Release Drafter token",
+			account:         "my-account",
+			repo:            "my-repo",
+			setupSecrets:    "true",
+			goreleaserToken: "goreleaser-token",
+			wantErr:         true,
 		},
 	}
 
@@ -404,7 +513,8 @@ func TestLoadConfigFromEnv(t *testing.T) {
 			t.Setenv("BOOTSTRAP_NO_BINARY", tt.noBinary)
 			t.Setenv("BOOTSTRAP_NO_VERSIONING", tt.noVersioning)
 			t.Setenv("BOOTSTRAP_SETUP_SECRETS", tt.setupSecrets)
-			t.Setenv("BOOTSTRAP_RELEASE_TOKEN", tt.releaseToken)
+			t.Setenv("BOOTSTRAP_GORELEASER_TOKEN", tt.goreleaserToken)
+			t.Setenv("BOOTSTRAP_RELEASE_DRAFTER_TOKEN", tt.releaseDrafterToken)
 
 			cfg, err := loadConfigFromEnv(tt.account)
 			if tt.wantErr {
@@ -417,7 +527,8 @@ func TestLoadConfigFromEnv(t *testing.T) {
 			assert.Equal(t, tt.wantBinary, cfg.includeBinary)
 			assert.Equal(t, tt.wantVersioning, cfg.includeVersion)
 			assert.Equal(t, tt.wantSetup, cfg.setupSecrets)
-			assert.Equal(t, tt.wantToken, cfg.releaseToken)
+			assert.Equal(t, tt.wantGoreleaserToken, cfg.goreleaserToken)
+			assert.Equal(t, tt.wantReleaseDrafterToken, cfg.releaseDrafterToken)
 		})
 	}
 }
@@ -440,18 +551,22 @@ func TestDetectRepositoryIdentity(t *testing.T) {
 			wantGitCommands: [][]string{{"git", "remote", "get-url", "origin"}},
 		},
 		"gh fallback": {
-			gitErr:             errors.New("exit status 2"),
-			ghOutput:           "my-account/my-repo\n",
-			wantAccount:        "my-account",
-			wantRepo:           "my-repo",
-			wantGitCommands:    [][]string{{"git", "remote", "get-url", "origin"}},
-			wantGitHubCommands: [][]string{{"gh", "repo", "view", "--json", "owner,name", "--jq", ".owner.login + \"/\" + .name"}},
+			gitErr:          errors.New("exit status 2"),
+			ghOutput:        "my-account/my-repo\n",
+			wantAccount:     "my-account",
+			wantRepo:        "my-repo",
+			wantGitCommands: [][]string{{"git", "remote", "get-url", "origin"}},
+			wantGitHubCommands: [][]string{
+				{"gh", "repo", "view", "--json", "owner,name", "--jq", ".owner.login + \"/\" + .name"},
+			},
 		},
 		"no repository detected": {
-			gitErr:             errors.New("exit status 2"),
-			ghErr:              errors.New("exit status 1"),
-			wantGitCommands:    [][]string{{"git", "remote", "get-url", "origin"}},
-			wantGitHubCommands: [][]string{{"gh", "repo", "view", "--json", "owner,name", "--jq", ".owner.login + \"/\" + .name"}},
+			gitErr:          errors.New("exit status 2"),
+			ghErr:           errors.New("exit status 1"),
+			wantGitCommands: [][]string{{"git", "remote", "get-url", "origin"}},
+			wantGitHubCommands: [][]string{
+				{"gh", "repo", "view", "--json", "owner,name", "--jq", ".owner.login + \"/\" + .name"},
+			},
 		},
 	}
 
@@ -460,13 +575,13 @@ func TestDetectRepositoryIdentity(t *testing.T) {
 			var gitCommands [][]string
 			var gitHubCommands [][]string
 			restoreCommandHooks(t)
-			runGitCommand = func(stdin string, name string, args ...string) ([]byte, error) {
+			runGitCommand = func(stdin, name string, args ...string) ([]byte, error) {
 				assert.Empty(t, stdin)
 				command := append([]string{name}, args...)
 				gitCommands = append(gitCommands, command)
 				return []byte(tt.gitOutput), tt.gitErr
 			}
-			runGitHubCommand = func(stdin string, name string, args ...string) ([]byte, error) {
+			runGitHubCommand = func(stdin, name string, args ...string) ([]byte, error) {
 				assert.Empty(t, stdin)
 				command := append([]string{name}, args...)
 				gitHubCommands = append(gitHubCommands, command)
@@ -542,61 +657,68 @@ func TestSetupReleaseSecrets(t *testing.T) {
 	}{
 		"binary only": {
 			cfg: &config{
-				accountName:   "my-account",
-				repoName:      "my-repo",
-				includeBinary: true,
-				releaseToken:  "secret-token",
+				accountName:     "my-account",
+				repoName:        "my-repo",
+				includeBinary:   true,
+				goreleaserToken: "goreleaser-token",
 			},
 			wantCommands: [][]string{
 				{"gh", "auth", "status"},
 				{"gh", "secret", "set", goreleaserSecretName, "--repo", "my-account/my-repo"},
 			},
-			wantStdin: []string{"", "secret-token"},
+			wantStdin: []string{"", "goreleaser-token"},
 		},
 		"versioning only": {
 			cfg: &config{
-				accountName:    "my-account",
-				repoName:       "my-repo",
-				includeVersion: true,
-				releaseToken:   "secret-token",
+				accountName:         "my-account",
+				repoName:            "my-repo",
+				includeVersion:      true,
+				releaseDrafterToken: "release-drafter-token",
 			},
 			wantCommands: [][]string{
 				{"gh", "auth", "status"},
 				{"gh", "secret", "set", releaseDrafterSecretName, "--repo", "my-account/my-repo"},
 			},
-			wantStdin: []string{"", "secret-token"},
+			wantStdin: []string{"", "release-drafter-token"},
 		},
 		"both release features": {
 			cfg: &config{
-				accountName:    "my-account",
-				repoName:       "my-repo",
-				includeBinary:  true,
-				includeVersion: true,
-				releaseToken:   "secret-token",
+				accountName:         "my-account",
+				repoName:            "my-repo",
+				includeBinary:       true,
+				includeVersion:      true,
+				goreleaserToken:     "goreleaser-token",
+				releaseDrafterToken: "release-drafter-token",
 			},
 			wantCommands: [][]string{
 				{"gh", "auth", "status"},
 				{"gh", "secret", "set", goreleaserSecretName, "--repo", "my-account/my-repo"},
 				{"gh", "secret", "set", releaseDrafterSecretName, "--repo", "my-account/my-repo"},
 			},
-			wantStdin: []string{"", "secret-token", "secret-token"},
+			wantStdin: []string{"", "goreleaser-token", "release-drafter-token"},
+		},
+		"no release features": {
+			cfg: &config{
+				accountName: "my-account",
+				repoName:    "my-repo",
+			},
 		},
 		"missing gh": {
 			cfg: &config{
-				accountName:   "my-account",
-				repoName:      "my-repo",
-				includeBinary: true,
-				releaseToken:  "secret-token",
+				accountName:     "my-account",
+				repoName:        "my-repo",
+				includeBinary:   true,
+				goreleaserToken: "goreleaser-token",
 			},
 			lookPathErr: errors.New("executable file not found"),
 			wantErr:     "GitHub CLI (gh) is required",
 		},
 		"auth failure": {
 			cfg: &config{
-				accountName:   "my-account",
-				repoName:      "my-repo",
-				includeBinary: true,
-				releaseToken:  "secret-token",
+				accountName:     "my-account",
+				repoName:        "my-repo",
+				includeBinary:   true,
+				goreleaserToken: "goreleaser-token",
 			},
 			commandErrs: map[string]error{
 				"gh auth status": errors.New("exit status 1"),
@@ -609,10 +731,10 @@ func TestSetupReleaseSecrets(t *testing.T) {
 		},
 		"secret set failure": {
 			cfg: &config{
-				accountName:   "my-account",
-				repoName:      "my-repo",
-				includeBinary: true,
-				releaseToken:  "secret-token",
+				accountName:     "my-account",
+				repoName:        "my-repo",
+				includeBinary:   true,
+				goreleaserToken: "goreleaser-token",
 			},
 			commandErrs: map[string]error{
 				"gh secret set GORELEASER_TOKEN --repo my-account/my-repo": errors.New("exit status 1"),
@@ -621,7 +743,7 @@ func TestSetupReleaseSecrets(t *testing.T) {
 				{"gh", "auth", "status"},
 				{"gh", "secret", "set", goreleaserSecretName, "--repo", "my-account/my-repo"},
 			},
-			wantStdin: []string{"", "secret-token"},
+			wantStdin: []string{"", "goreleaser-token"},
 			wantErr:   "gh secret set failed for GORELEASER_TOKEN",
 		},
 	}
@@ -638,7 +760,7 @@ func TestSetupReleaseSecrets(t *testing.T) {
 				}
 				return "/usr/bin/gh", nil
 			}
-			runGitHubCommand = func(stdin string, name string, args ...string) ([]byte, error) {
+			runGitHubCommand = func(stdin, name string, args ...string) ([]byte, error) {
 				command := append([]string{name}, args...)
 				commands = append(commands, command)
 				stdins = append(stdins, stdin)
@@ -652,7 +774,8 @@ func TestSetupReleaseSecrets(t *testing.T) {
 			if tt.wantErr != "" {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.wantErr)
-				assert.NotContains(t, err.Error(), "secret-token")
+				assert.NotContains(t, err.Error(), "goreleaser-token")
+				assert.NotContains(t, err.Error(), "release-drafter-token")
 			} else {
 				require.NoError(t, err)
 			}

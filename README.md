@@ -23,7 +23,7 @@ The CLI will guide you through an interactive form to configure your new project
 - **Include Versioning Support?**:
   Whether to include release drafter and automated versioning workflows
 - **Set GitHub Release Secrets?**:
-  Optionally store a supplied personal access token as the required GitHub
+  Optionally store supplied personal access tokens as the required GitHub
   Actions release secrets with the GitHub CLI.
 
 ## Devbox
@@ -100,7 +100,15 @@ repository with `Contents: read and write` and
 The bootstrap CLI does not create personal access tokens.
 For the least-privilege setup, create separate tokens for GoReleaser and
 Release Drafter with the permissions listed above.
-Store them with [GitHub CLI](https://cli.github.com/):
+When secret setup is enabled, the CLI stores:
+
+- `GORELEASER_TOKEN` from the GoReleaser token,
+  when binary support is enabled.
+- `RELEASE_DRAFTER_TOKEN` from the Release Drafter token,
+  when versioning support is enabled.
+
+You can also store the secrets manually with
+[GitHub CLI](https://cli.github.com/):
 
 ```shell
 gh secret set GORELEASER_TOKEN --repo <github-account-name>/<repo-name>
