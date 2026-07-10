@@ -417,6 +417,7 @@ func removeBinarySupport() error {
 func removeJustfileBinaryRecipes() error {
 	return removeJustfileRecipes(func(line string) bool {
 		return (strings.HasPrefix(line, "# Build ") && strings.HasSuffix(line, " binary")) ||
+			line == "# Install x-repo-name binary" ||
 			strings.HasPrefix(line, "# Build and release")
 	})
 }

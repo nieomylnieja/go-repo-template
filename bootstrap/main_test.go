@@ -89,7 +89,7 @@ func TestBootstrap_DefaultBehavior(t *testing.T) {
 		assert.Contains(t, prCheck, "  release-notes-check:")
 	})
 
-	t.Run("keeps build and release recipes in justfile", func(t *testing.T) {
+	t.Run("keeps build, install, and release recipes in justfile", func(t *testing.T) {
 		actualJustfile := readFile(t, filepath.Join(tmpDir, "justfile"))
 		expectedJustfile := getExpectedJustfile(t, true)
 		assert.Equal(t, expectedJustfile, actualJustfile, "justfile content differs from expected")
@@ -107,7 +107,7 @@ func TestBootstrap_NoBinaryFlag(t *testing.T) {
 		assert.NoFileExists(t, filepath.Join(tmpDir, ".goreleaser.yml"))
 		assert.NoFileExists(t, filepath.Join(tmpDir, ".github", "workflows", "release.yml"))
 	})
-	t.Run("removes build and release recipes from justfile", func(t *testing.T) {
+	t.Run("removes build, install, and release recipes from justfile", func(t *testing.T) {
 		actualJustfile := readFile(t, filepath.Join(tmpDir, "justfile"))
 		expectedJustfile := getExpectedJustfile(t, false)
 		assert.Equal(t, expectedJustfile, actualJustfile, "justfile content differs from expected")
