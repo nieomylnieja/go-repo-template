@@ -40,6 +40,11 @@ build:
     mkdir -p {{ bin_dir }}
     go build -ldflags="{{ ldflags }}" -o {{ bin_dir }}/{{ app_name }} ./cmd/{{ app_name }}
 
+# Install x-repo-name binary
+install:
+    @{{ print_step }} "Installing binary"
+    go install -ldflags="{{ ldflags }}" ./cmd/{{ app_name }}
+
 # Build and release the binaries
 release:
     @{{ print_step }} "Releasing binary"
