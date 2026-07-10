@@ -86,6 +86,9 @@ func TestBootstrap_DefaultBehavior(t *testing.T) {
 
 		prCheck := readFile(t, filepath.Join(tmpDir, ".github", "workflows", "pr-check.yml"))
 		assert.Contains(t, prCheck, "  pr-title-check:")
+		assert.Contains(t, prCheck, "name: Check PR title")
+		assert.Contains(t, prCheck, "readonly PR_TITLE_PATTERN='^(feat|fix|sec|infra|test|chore|doc): .{5,}$'")
+		assert.NotContains(t, prCheck, "Slashgear/action-check-pr-title")
 		assert.Contains(t, prCheck, "  release-notes-check:")
 	})
 
@@ -146,6 +149,9 @@ func TestBootstrap_NoVersioningFlag(t *testing.T) {
 		prCheck := readFile(t, filepath.Join(tmpDir, ".github", "workflows", "pr-check.yml"))
 
 		assert.Contains(t, prCheck, "  pr-title-check:")
+		assert.Contains(t, prCheck, "name: Check PR title")
+		assert.Contains(t, prCheck, "readonly PR_TITLE_PATTERN='^(feat|fix|sec|infra|test|chore|doc): .{5,}$'")
+		assert.NotContains(t, prCheck, "Slashgear/action-check-pr-title")
 		assert.NotContains(t, prCheck, "  release-notes-check:")
 	})
 	t.Run("keeps binary-related files", func(t *testing.T) {

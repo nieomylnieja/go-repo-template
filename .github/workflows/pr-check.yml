@@ -10,10 +10,27 @@ jobs:
   pr-title-check:
     runs-on: ubuntu-latest
     steps:
-      - uses: Slashgear/action-check-pr-title@v5.0.1
-        with:
-          regexp: "^(feat|fix|sec|infra|test|chore|doc): .{5,}"
-          helpMessage: "Example: 'feat: new pr title check' <- prefix, colon, space, PR title of at least 5 chars"
+      - name: Check PR title
+        shell: bash
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title || '' }}
+        run: |
+          set -euo pipefail
+
+          readonly PR_TITLE_PATTERN='^(feat|fix|sec|infra|test|chore|doc): .{5,}$'
+
+          if [[ -z "${PR_TITLE}" ]]; then
+            echo "Skipping PR title check: this event does not include a pull request title."
+            exit 0
+          fi
+
+          if [[ "${PR_TITLE}" =~ ${PR_TITLE_PATTERN} ]]; then
+            exit 0
+          fi
+
+          echo "Pull request title must match: ${PR_TITLE_PATTERN}" >&2
+          echo "Example: 'feat: new pr title check'" >&2
+          exit 1
 
   release-notes-check:
     if: github.event_name == 'pull_request'
