@@ -3,7 +3,7 @@ module github.com/nieomylnieja/go-repo-template/bootstrap
 go 1.26
 
 require (
-	github.com/charmbracelet/huh v0.8.0
+	github.com/charmbracelet/huh/v2 v2.0.3
 	github.com/stretchr/testify v1.11.1
 	github.com/survivorbat/huhtest v0.0.2
 )
