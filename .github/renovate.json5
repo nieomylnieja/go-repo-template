@@ -1,71 +1,61 @@
 {
-  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
-  extends: [
-    'schedule:nonOfficeHours',
-    ':enableVulnerabilityAlertsWithLabel(security)',
-    'group:recommended',
-    'workarounds:all',
-    ':preserveSemverRanges',
-    ':automergeMinor',
-    ':automergePr',
-    ':automergeRequireAllStatusChecks',
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "schedule:nonOfficeHours", // https://docs.renovatebot.com/presets-schedule/#schedulenonofficehours
+    ":enableVulnerabilityAlertsWithLabel(security)", // https://docs.renovatebot.com/presets-default/#enablevulnerabilityalertswithlabelarg0
+    "group:recommended", // https://docs.renovatebot.com/presets-group/#grouprecommended
+    "workarounds:all", // https://docs.renovatebot.com/presets-workarounds/#workaroundsall
+    ":preserveSemverRanges", // https://docs.renovatebot.com/presets-default/#preservesemverranges
+    // Automerge configuration.
+    ":automergeMinor",
+    ":automergePr",
+    ":automergeRequireAllStatusChecks",
   ],
-  reviewersFromCodeOwners: true,
-  dependencyDashboard: {
-    enabled: true,
+  "reviewersFromCodeOwners": true,
+  "dependencyDashboard": {
+    "enabled": true,
   },
-  semanticCommits: 'disabled',
-  labels: [
-    'dependencies',
-    'renovate',
-  ],
-  prHourlyLimit: 1,
-  prConcurrentLimit: 5,
-  rebaseWhen: 'conflicted',
-  rangeStrategy: 'pin',
-  branchPrefix: 'renovate_',
-  commitMessagePrefix: 'chore:',
-  postUpdateOptions: [
-    'gomodTidy',
-  ],
-  packageRules: [
+  "semanticCommits": "disabled",
+  "labels": ["dependencies", "renovate"],
+  "prHourlyLimit": 1,
+  "prConcurrentLimit": 5,
+  "rebaseWhen": "conflicted",
+  "rangeStrategy": "pin",
+  "branchPrefix": "renovate_",
+  "commitMessagePrefix": "chore:",
+  // This will run go mod tidy after each go.mod update.
+  "postUpdateOptions": ["gomodTidy"],
+  // Groups:
+  "packageRules": [
     {
-      matchManagers: [
-        'gomod',
+      "matchManagers": ["gomod"],
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
       ],
-      matchUpdateTypes: [
-        'minor',
-        'patch',
-      ],
-      groupName: 'minor and patch Golang dependencies',
+      "groupName": "minor and patch Golang dependencies",
     },
     {
-      matchManagers: [
-        'github-actions',
-      ],
-      addLabels: [
-        'github-actions',
-      ],
+      "matchManagers": ["github-actions"],
+      "addLabels": ["github-actions"],
     },
     {
-      matchManagers: [
-        'gomod',
-      ],
-      addLabels: [
-        'golang',
-      ],
+      "matchManagers": ["gomod"],
+      "addLabels": ["golang"],
     },
     {
-      matchManagers: [
-        'npm',
-      ],
-      addLabels: [
-        'javascript',
-      ],
+      "matchManagers": ["npm"],
+      "addLabels": ["javascript"],
+    },
+    {
+      "matchManagers": ["gomod"],
+      "matchDepNames": ["go"],
+      "matchDepTypes": ["golang"],
+      "rangeStrategy": "bump",
     },
   ],
-  ignorePaths: [
-    '**/vendor/**',
-    '**/node_modules/**',
-  ],
+  "ignorePaths": [
+    "**/vendor/**",
+    "**/node_modules/**"
+  ]
 }
