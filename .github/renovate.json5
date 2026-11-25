@@ -12,7 +12,9 @@
     ":automergeRequireAllStatusChecks",
   ],
   "reviewersFromCodeOwners": true,
-  "dependencyDashboard": true,
+  "dependencyDashboard": {
+    "enabled": true,
+  },
   "semanticCommits": "disabled",
   "labels": ["dependencies", "renovate"],
   "prHourlyLimit": 1,
@@ -44,6 +46,12 @@
     {
       "matchManagers": ["npm"],
       "addLabels": ["javascript"],
+    },
+    {
+      "matchManagers": ["gomod"],
+      "matchDepNames": ["go"],
+      "matchDepTypes": ["golang"],
+      "rangeStrategy": "bump",
     },
   ],
   "ignorePaths": [
